@@ -1,0 +1,29 @@
+[package]
+name = "serde_binary_adv"
+version = "1.0.0-alpha.1"
+edition = "2024"
+description = "A library for Serde to enable the serialization and deserialization of Rust structures to and from raw binary"
+repository = "https://github.com/JEleniel/serde_binary_adv"
+license = "MIT OR Apache-2.0"
+keywords = ["binary", "deserialization", "serde", "serialization"]
+categories = ["encoding", "parser-implementations"]
+exclude = [
+  "**/.analyze/*",
+  "/.git/*",
+  "/.github/*",
+  "/.gitignore",
+  "/.vscode/*",
+]
+include = [
+  "/LICENSE-Apache.md",
+  "/LICENSE-MIT.md",
+  "/README.md",
+  "/build.rs",
+  "/examples/**",
+]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+
+[lints.rust]
+unsafe_code = "forbid"
