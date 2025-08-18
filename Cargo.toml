@@ -23,6 +23,7 @@ include = [
 ]
 
 [dependencies]
+num = "0.4.3"
 serde = { version = "1", features = ["derive"] }
 
 [lints.rust]
