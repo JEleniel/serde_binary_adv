@@ -1,112 +1,49 @@
-use crate::serdebinaryadv::common::Offset;
-use std::fmt::Debug;
+use std;
 use std::fmt::{self, Display};
 
+use serde::{de, ser};
+
+/// an Ok(()) or Err(serde_binary_adv::Error)
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub struct Error {
-	err: Box<ErrorImpl>,
+/// the errors that can be thrown
+#[derive(Debug)]
+pub enum Error {
+	/// A message only error
+	Message(String),
+
+	/// unexpected end of input
+	Eof,
+	/// expected a different type
+	Expected(String),
+	/// invalid ASCII value
+	InvalidASCII,
+	/// invalid Unicode code point
+	InvalidUnicode,
 }
 
-impl Error {
-	pub fn new(kind: ErrorKind, offset: Offset, message: &str) -> Self {
-		Self {
-			err: Box::new(ErrorImpl {
-				kind,
-				offset,
-				message: String::from(message),
-			}),
-		}
-	}
-
-	pub fn kind(&self) -> &ErrorKind {
-		&self.err.kind
-	}
-
-	pub fn offset(&self) -> &Offset {
-		&self.err.offset
-	}
-
-	pub fn message(&self) -> &String {
-		&self.err.message
+impl ser::Error for Error {
+	fn custom<T: Display>(msg: T) -> Self {
+		Error::Message(msg.to_string())
 	}
 }
 
-impl Debug for Error {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "{:?}", self.err)
+impl de::Error for Error {
+	fn custom<T: Display>(msg: T) -> Self {
+		Error::Message(msg.to_string())
 	}
 }
 
 impl Display for Error {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		Display::fmt(&*self.err, f)
+		match self {
+			Error::Message(msg) => write!(f, "{}", msg),
+			Error::Eof => write!(f, "unexpected end of input"),
+			Error::Expected(typ) => write!(f, "unexpected type, expected {}", typ),
+			Error::InvalidASCII => write!(f, "nvalid ASCII character"),
+			Error::InvalidUnicode => write!(f, "invalid Unicode character"),
+		}
 	}
 }
 
 impl std::error::Error for Error {}
-
-impl serde::ser::Error for Error {
-	fn custom<T: Display>(msg: T) -> Self {
-		Self {
-			err: Box::new(ErrorImpl {
-				kind: ErrorKind::Message,
-				offset: 0,
-				message: msg.to_string(),
-			}),
-		}
-	}
-}
-
-impl serde::de::Error for Error {
-	fn custom<T>(msg: T) -> Self
-	where
-		T: Display,
-	{
-		Self {
-			err: Box::new(ErrorImpl {
-				kind: ErrorKind::Message,
-				offset: 0,
-				message: msg.to_string(),
-			}),
-		}
-	}
-}
-
-#[derive(Debug)]
-struct ErrorImpl {
-	kind: ErrorKind,
-	offset: Offset,
-	message: String,
-}
-
-impl Display for ErrorImpl {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(
-			f,
-			"{}: at offest {} caused by {}",
-			self.kind, self.offset, self.message
-		)
-	}
-}
-
-#[derive(Debug)]
-pub enum ErrorKind {
-	Message,
-	Io,
-	UnexpectedEOF,
-	InvalidUnicodeCodePoint,
-	MarkerNotFound,
-}
-
-impl Display for ErrorKind {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		match self {
-			Self::Message => write!(f, "Message"),
-			Self::Io => write!(f, "Io"),
-			Self::InvalidUnicodeCodePoint => write!(f, "InvalidUnicodeCodePoint"),
-			Self::UnexpectedEOF => write!(f, "UnexpectedEOF"),
-			Self::MarkerNotFound => write!(f, "MarkerNotFound"),
-		}
-	}
-}

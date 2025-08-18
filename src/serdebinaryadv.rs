@@ -7,4 +7,4 @@ mod ser;
 pub use de::Deserializer;
 pub use error::*;
 pub use options::*;
-pub use ser::Serializer;
+pub use ser::{Serializer, to_bytes};
