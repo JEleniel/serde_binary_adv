@@ -1,27 +1,26 @@
-use num::traits::FromBytes;
 use serde::Deserialize;
 use serde::de::{
 	self, DeserializeSeed, EnumAccess, IntoDeserializer, MapAccess, SeqAccess, VariantAccess,
 	Visitor,
 };
 
-use crate::{Endianness, Options};
+use crate::{CharacterEncoding, Endianness, Options, serdebinaryadv::bytes::Raw};
 
 use super::error::{Error, Result};
 
 /// deserializes a Vec<u8> into Rust structures
 pub struct Deserializer<'de> {
-	input: &'de Vec<u8>,
-	offset: usize,
+	raw: Raw,
 	options: Options,
+	flag: &'de bool,
 }
 
 impl<'de> Deserializer<'de> {
-	pub fn from_bytes(input: &'de Vec<u8>, options: Options) -> Self {
+	fn from_bytes(input: &'de Vec<u8>, options: Options) -> Deserializer<'de> {
 		Deserializer {
-			input,
-			offset: 0,
+			raw: Raw::from(input),
 			options,
+			flag: &true,
 		}
 	}
 }
@@ -36,36 +35,6 @@ where
 	Ok(t)
 }
 
-impl<'de> Deserializer<'de> {
-	type Bytes = Vec<u8>;
-
-	fn peek(&mut self) -> Result<u8> {
-		if self.input.len() < self.offset + 1 {
-			Err(Error::Eof)
-		} else {
-			Ok(self.input[self.offset + 1])
-		}
-	}
-
-	fn next(&mut self) -> Result<u8> {
-		if self.input.len() == 0 {
-			return Err(Error::Eof);
-		}
-		self.offset += 1;
-		let v = self.input[self.offset];
-		Ok(v)
-	}
-
-	fn take(&mut self, len: usize) -> Result<Vec<u8>> {
-		if self.input.len() < (len - 1) {
-			return Err(Error::Eof);
-		}
-		let v = self.input[0..len].to_vec();
-		self.offset += len;
-		Ok(v)
-	}
-}
-
 impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	type Error = Error;
 
@@ -73,21 +42,21 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	where
 		V: Visitor<'de>,
 	{
-		visitor.visit_bool(self.next().unwrap() == 0x00)
+		visitor.visit_bool(self.raw.next().unwrap() == 0x00)
 	}
 
 	fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		visitor.visit_i8(self.next().unwrap() as i8)
+		visitor.visit_i8(self.raw.next().unwrap() as i8)
 	}
 
 	fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		let bytes = self.take(2).unwrap();
+		let bytes = self.raw.take(2).unwrap();
 		visitor.visit_i16(match self.options.endianness {
 			Endianness::Native => i16::from_ne_bytes(bytes.try_into().unwrap()),
 			Endianness::Little => i16::from_le_bytes(bytes.try_into().unwrap()),
@@ -99,7 +68,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	where
 		V: Visitor<'de>,
 	{
-		let bytes = self.take(4).unwrap();
+		let bytes = self.raw.take(4).unwrap();
 		visitor.visit_i32(match self.options.endianness {
 			Endianness::Native => i32::from_ne_bytes(bytes.try_into().unwrap()),
 			Endianness::Little => i32::from_le_bytes(bytes.try_into().unwrap()),
@@ -111,7 +80,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	where
 		V: Visitor<'de>,
 	{
-		let bytes = self.take(8).unwrap();
+		let bytes = self.raw.take(8).unwrap();
 		visitor.visit_i64(match self.options.endianness {
 			Endianness::Native => i64::from_ne_bytes(bytes.try_into().unwrap()),
 			Endianness::Little => i64::from_le_bytes(bytes.try_into().unwrap()),
@@ -123,14 +92,14 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	where
 		V: Visitor<'de>,
 	{
-		visitor.visit_u8(self.next().unwrap())
+		visitor.visit_u8(self.raw.next().unwrap())
 	}
 
 	fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		let bytes = self.take(8).unwrap();
+		let bytes = self.raw.take(8).unwrap();
 		visitor.visit_u16(match self.options.endianness {
 			Endianness::Native => u16::from_ne_bytes(bytes.try_into().unwrap()),
 			Endianness::Little => u16::from_le_bytes(bytes.try_into().unwrap()),
@@ -142,7 +111,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	where
 		V: Visitor<'de>,
 	{
-		let bytes = self.take(8).unwrap();
+		let bytes = self.raw.take(8).unwrap();
 		visitor.visit_u32(match self.options.endianness {
 			Endianness::Native => u32::from_ne_bytes(bytes.try_into().unwrap()),
 			Endianness::Little => u32::from_le_bytes(bytes.try_into().unwrap()),
@@ -154,7 +123,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	where
 		V: Visitor<'de>,
 	{
-		let bytes = self.take(8).unwrap();
+		let bytes = self.raw.take(8).unwrap();
 		visitor.visit_u64(match self.options.endianness {
 			Endianness::Native => u64::from_ne_bytes(bytes.try_into().unwrap()),
 			Endianness::Little => u64::from_le_bytes(bytes.try_into().unwrap()),
@@ -167,7 +136,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	where
 		V: Visitor<'de>,
 	{
-		let bytes = self.take(8).unwrap();
+		let bytes = self.raw.take(8).unwrap();
 		visitor.visit_f32(match self.options.endianness {
 			Endianness::Native => f32::from_ne_bytes(bytes.try_into().unwrap()),
 			Endianness::Little => f32::from_le_bytes(bytes.try_into().unwrap()),
@@ -180,7 +149,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	where
 		V: Visitor<'de>,
 	{
-		let bytes = self.take(8).unwrap();
+		let bytes = self.raw.take(8).unwrap();
 		visitor.visit_f64(match self.options.endianness {
 			Endianness::Native => f64::from_ne_bytes(bytes.try_into().unwrap()),
 			Endianness::Little => f64::from_le_bytes(bytes.try_into().unwrap()),
@@ -188,12 +157,25 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 		})
 	}
 
-	fn deserialize_char<V>(self, _visitor: V) -> Result<V::Value>
+	fn deserialize_char<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		// Parse a string, check that it is one character, call `visit_char`.
-		unimplemented!()
+		match self.options.character_encoding {
+			CharacterEncoding::ASCII => {
+				visitor.visit_char(char::try_from(self.raw.next().unwrap()).unwrap())
+			}
+			CharacterEncoding::UTF8 => {
+				if self.raw.peek().unwrap() < 0x80 {
+					visitor.visit_char(char::try_from(self.raw.next().unwrap()).unwrap())
+				} else if self.raw.peek().unwrap() >= 0x80 && self.raw.peek().unwrap() <= 0xBF {
+					visitor.visit_char(char::from(self.raw.take(2).unwrap()))
+				} else if self.peek().unwrap() >= 0x80 && self.peek().unwrap() <= 0xBF {
+					visitor.visit_char(char::try_from(self.take(2).unwrap()).unwrap())
+				}
+			}
+			CharacterEncoding::UTF16 => {}
+		}
 	}
 
 	// Refer to the "Understanding deserializer lifetimes" page for information
@@ -240,8 +222,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	where
 		V: Visitor<'de>,
 	{
-		if self.input.starts_with("null") {
-			self.input = &self.input["null".len()..];
+		if self.raw.starts_with("null") {
+			self.raw = &self.raw["null".len()..];
 			visitor.visit_none()
 		} else {
 			visitor.visit_some(self)
@@ -253,8 +235,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	where
 		V: Visitor<'de>,
 	{
-		if self.input.starts_with("null") {
-			self.input = &self.input["null".len()..];
+		if self.raw.starts_with("null") {
+			self.raw = &self.raw["null".len()..];
 			visitor.visit_unit()
 		} else {
 			Err(Error::ExpectedNull)

@@ -1,3 +1,4 @@
+mod bytes;
 mod common;
 mod de;
 mod error;
