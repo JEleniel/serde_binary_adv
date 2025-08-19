@@ -37,6 +37,8 @@ where
 }
 
 impl<'de> Deserializer<'de> {
+	type Bytes = Vec<u8>;
+
 	fn peek(&mut self) -> Result<u8> {
 		if self.input.len() < self.offset + 1 {
 			Err(Error::Eof)
@@ -61,14 +63,6 @@ impl<'de> Deserializer<'de> {
 		let v = self.input[0..len].to_vec();
 		self.offset += len;
 		Ok(v)
-	}
-
-	fn deserialize_num<T: FromBytes>(self, v: Vec<u8>) -> T {
-		match self.options.endianness {
-			Endianness::Native => T::from_ne_bytes(v),
-			Endianness::Little => T::from_le_bytes(v.try_into().unwrap()),
-			Endianness::Big => T::from_be_bytes(v.try_into().unwrap()),
-		}
 	}
 }
 
@@ -105,62 +99,95 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	where
 		V: Visitor<'de>,
 	{
-		visitor.visit_i32(self.parse_signed()?)
+		let bytes = self.take(4).unwrap();
+		visitor.visit_i32(match self.options.endianness {
+			Endianness::Native => i32::from_ne_bytes(bytes.try_into().unwrap()),
+			Endianness::Little => i32::from_le_bytes(bytes.try_into().unwrap()),
+			Endianness::Big => i32::from_be_bytes(bytes.try_into().unwrap()),
+		})
 	}
 
 	fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		visitor.visit_i64(self.parse_signed()?)
+		let bytes = self.take(8).unwrap();
+		visitor.visit_i64(match self.options.endianness {
+			Endianness::Native => i64::from_ne_bytes(bytes.try_into().unwrap()),
+			Endianness::Little => i64::from_le_bytes(bytes.try_into().unwrap()),
+			Endianness::Big => i64::from_be_bytes(bytes.try_into().unwrap()),
+		})
 	}
 
 	fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		visitor.visit_u8(self.parse_unsigned()?)
+		visitor.visit_u8(self.next().unwrap())
 	}
 
 	fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		visitor.visit_u16(self.parse_unsigned()?)
+		let bytes = self.take(8).unwrap();
+		visitor.visit_u16(match self.options.endianness {
+			Endianness::Native => u16::from_ne_bytes(bytes.try_into().unwrap()),
+			Endianness::Little => u16::from_le_bytes(bytes.try_into().unwrap()),
+			Endianness::Big => u16::from_be_bytes(bytes.try_into().unwrap()),
+		})
 	}
 
 	fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		visitor.visit_u32(self.parse_unsigned()?)
+		let bytes = self.take(8).unwrap();
+		visitor.visit_u32(match self.options.endianness {
+			Endianness::Native => u32::from_ne_bytes(bytes.try_into().unwrap()),
+			Endianness::Little => u32::from_le_bytes(bytes.try_into().unwrap()),
+			Endianness::Big => u32::from_be_bytes(bytes.try_into().unwrap()),
+		})
 	}
 
 	fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		visitor.visit_u64(self.parse_unsigned()?)
+		let bytes = self.take(8).unwrap();
+		visitor.visit_u64(match self.options.endianness {
+			Endianness::Native => u64::from_ne_bytes(bytes.try_into().unwrap()),
+			Endianness::Little => u64::from_le_bytes(bytes.try_into().unwrap()),
+			Endianness::Big => u64::from_be_bytes(bytes.try_into().unwrap()),
+		})
 	}
 
 	// Float parsing is stupidly hard.
-	fn deserialize_f32<V>(self, _visitor: V) -> Result<V::Value>
+	fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		unimplemented!()
+		let bytes = self.take(8).unwrap();
+		visitor.visit_f32(match self.options.endianness {
+			Endianness::Native => f32::from_ne_bytes(bytes.try_into().unwrap()),
+			Endianness::Little => f32::from_le_bytes(bytes.try_into().unwrap()),
+			Endianness::Big => f32::from_be_bytes(bytes.try_into().unwrap()),
+		})
 	}
 
 	// Float parsing is stupidly hard.
-	fn deserialize_f64<V>(self, _visitor: V) -> Result<V::Value>
+	fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		unimplemented!()
+		let bytes = self.take(8).unwrap();
+		visitor.visit_f64(match self.options.endianness {
+			Endianness::Native => f64::from_ne_bytes(bytes.try_into().unwrap()),
+			Endianness::Little => f64::from_le_bytes(bytes.try_into().unwrap()),
+			Endianness::Big => f64::from_be_bytes(bytes.try_into().unwrap()),
+		})
 	}
 
-	// The `Serializer` implementation on the previous page serialized chars as
-	// single-character strings so handle that representation here.
 	fn deserialize_char<V>(self, _visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
