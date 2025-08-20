@@ -1,12 +1,29 @@
+use super::error::{Error, Result};
+use crate::{CharacterEncoding, Endianness, Options, StringType, serdebinaryadv::bytes::Raw};
 use serde::Deserialize;
 use serde::de::{
 	self, DeserializeSeed, EnumAccess, IntoDeserializer, MapAccess, SeqAccess, VariantAccess,
 	Visitor,
 };
 
-use crate::{CharacterEncoding, Endianness, Options, serdebinaryadv::bytes::Raw};
+macro_rules! impl_deserialize_num {
+	($name:ident, $ty:ty, $visit:ident) => {
+		fn $name<V>(self, visitor: V) -> Result<V::Value>
+		where
+			V: Visitor<'de>,
+		{
+			let bytes = self.raw.take(size_of::<$ty>()).unwrap();
 
-use super::error::{Error, Result};
+			let value = match self.options.endianness {
+				Endianness::Native => <$ty>::from_ne_bytes(bytes.try_into().unwrap()),
+				Endianness::Little => <$ty>::from_le_bytes(bytes.try_into().unwrap()),
+				Endianness::Big => <$ty>::from_be_bytes(bytes.try_into().unwrap()),
+			};
+
+			visitor.$visit(value)
+		}
+	};
+}
 
 /// deserializes a Vec<u8> into Rust structures
 pub struct Deserializer<'de> {
@@ -38,6 +55,15 @@ where
 impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	type Error = Error;
 
+	impl_deserialize_num!(deserialize_i16, i16, visit_i16);
+	impl_deserialize_num!(deserialize_i32, i32, visit_i32);
+	impl_deserialize_num!(deserialize_i64, i64, visit_i64);
+	impl_deserialize_num!(deserialize_u16, u16, visit_u16);
+	impl_deserialize_num!(deserialize_u32, u32, visit_u32);
+	impl_deserialize_num!(deserialize_u64, u64, visit_u64);
+	impl_deserialize_num!(deserialize_f32, f32, visit_f32);
+	impl_deserialize_num!(deserialize_f64, f64, visit_f64);
+
 	fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
@@ -52,42 +78,6 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 		visitor.visit_i8(self.raw.next().unwrap() as i8)
 	}
 
-	fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value>
-	where
-		V: Visitor<'de>,
-	{
-		let bytes = self.raw.take(2).unwrap();
-		visitor.visit_i16(match self.options.endianness {
-			Endianness::Native => i16::from_ne_bytes(bytes.try_into().unwrap()),
-			Endianness::Little => i16::from_le_bytes(bytes.try_into().unwrap()),
-			Endianness::Big => i16::from_be_bytes(bytes.try_into().unwrap()),
-		})
-	}
-
-	fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value>
-	where
-		V: Visitor<'de>,
-	{
-		let bytes = self.raw.take(4).unwrap();
-		visitor.visit_i32(match self.options.endianness {
-			Endianness::Native => i32::from_ne_bytes(bytes.try_into().unwrap()),
-			Endianness::Little => i32::from_le_bytes(bytes.try_into().unwrap()),
-			Endianness::Big => i32::from_be_bytes(bytes.try_into().unwrap()),
-		})
-	}
-
-	fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value>
-	where
-		V: Visitor<'de>,
-	{
-		let bytes = self.raw.take(8).unwrap();
-		visitor.visit_i64(match self.options.endianness {
-			Endianness::Native => i64::from_ne_bytes(bytes.try_into().unwrap()),
-			Endianness::Little => i64::from_le_bytes(bytes.try_into().unwrap()),
-			Endianness::Big => i64::from_be_bytes(bytes.try_into().unwrap()),
-		})
-	}
-
 	fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
@@ -95,96 +85,89 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 		visitor.visit_u8(self.raw.next().unwrap())
 	}
 
-	fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value>
-	where
-		V: Visitor<'de>,
-	{
-		let bytes = self.raw.take(8).unwrap();
-		visitor.visit_u16(match self.options.endianness {
-			Endianness::Native => u16::from_ne_bytes(bytes.try_into().unwrap()),
-			Endianness::Little => u16::from_le_bytes(bytes.try_into().unwrap()),
-			Endianness::Big => u16::from_be_bytes(bytes.try_into().unwrap()),
-		})
-	}
-
-	fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value>
-	where
-		V: Visitor<'de>,
-	{
-		let bytes = self.raw.take(8).unwrap();
-		visitor.visit_u32(match self.options.endianness {
-			Endianness::Native => u32::from_ne_bytes(bytes.try_into().unwrap()),
-			Endianness::Little => u32::from_le_bytes(bytes.try_into().unwrap()),
-			Endianness::Big => u32::from_be_bytes(bytes.try_into().unwrap()),
-		})
-	}
-
-	fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value>
-	where
-		V: Visitor<'de>,
-	{
-		let bytes = self.raw.take(8).unwrap();
-		visitor.visit_u64(match self.options.endianness {
-			Endianness::Native => u64::from_ne_bytes(bytes.try_into().unwrap()),
-			Endianness::Little => u64::from_le_bytes(bytes.try_into().unwrap()),
-			Endianness::Big => u64::from_be_bytes(bytes.try_into().unwrap()),
-		})
-	}
-
-	// Float parsing is stupidly hard.
-	fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value>
-	where
-		V: Visitor<'de>,
-	{
-		let bytes = self.raw.take(8).unwrap();
-		visitor.visit_f32(match self.options.endianness {
-			Endianness::Native => f32::from_ne_bytes(bytes.try_into().unwrap()),
-			Endianness::Little => f32::from_le_bytes(bytes.try_into().unwrap()),
-			Endianness::Big => f32::from_be_bytes(bytes.try_into().unwrap()),
-		})
-	}
-
-	// Float parsing is stupidly hard.
-	fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value>
-	where
-		V: Visitor<'de>,
-	{
-		let bytes = self.raw.take(8).unwrap();
-		visitor.visit_f64(match self.options.endianness {
-			Endianness::Native => f64::from_ne_bytes(bytes.try_into().unwrap()),
-			Endianness::Little => f64::from_le_bytes(bytes.try_into().unwrap()),
-			Endianness::Big => f64::from_be_bytes(bytes.try_into().unwrap()),
-		})
-	}
-
 	fn deserialize_char<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
+		let mut s: String = String::new();
+
 		match self.options.character_encoding {
 			CharacterEncoding::ASCII => {
-				visitor.visit_char(char::try_from(self.raw.next().unwrap()).unwrap())
+				s = String::from_utf8(self.raw.take(1).unwrap()).unwrap();
 			}
 			CharacterEncoding::UTF8 => {
-				if self.raw.peek().unwrap() < 0x80 {
-					visitor.visit_char(char::try_from(self.raw.next().unwrap()).unwrap())
-				} else if self.raw.peek().unwrap() >= 0x80 && self.raw.peek().unwrap() <= 0xBF {
-					visitor.visit_char(char::from(self.raw.take(2).unwrap()))
-				} else if self.peek().unwrap() >= 0x80 && self.peek().unwrap() <= 0xBF {
-					visitor.visit_char(char::try_from(self.take(2).unwrap()).unwrap())
+				let b1 = self.raw.peek().unwrap();
+				if b1 <= 0x7F {
+					s = String::from_utf8(self.raw.take(1).unwrap()).unwrap();
+				} else if b1 >= 0x80 && b1 <= 0xBF {
+					s = String::from_utf8(self.raw.take(2).unwrap()).unwrap();
+				} else if b1 >= 0xE0 && b1 <= 0xEF {
+					s = String::from_utf8(self.raw.take(3).unwrap()).unwrap();
+				} else if b1 >= 0xF0 {
+					s = String::from_utf8(self.raw.take(4).unwrap()).unwrap();
+				} else {
+					return Err(Error::InvalidUnicode);
 				}
 			}
-			CharacterEncoding::UTF16 => {}
+			CharacterEncoding::UTF16 => {
+				let b1: u16 = self.raw.take_u16(&self.options.endianness).unwrap();
+
+				if b1 <= 0xD7FF || (b1 >= 0xE000 && b1 <= 0xFFFF) {
+					s = String::from_utf16(&[b1]).unwrap();
+				} else {
+					s = String::from_utf16(&[
+						b1,
+						self.raw.take_u16(&self.options.endianness).unwrap(),
+					])
+					.unwrap();
+				}
+			}
 		}
+		visitor.visit_char(s.chars().next().unwrap())
 	}
 
-	// Refer to the "Understanding deserializer lifetimes" page for information
-	// about the three deserialization flavors of strings in Serde.
 	fn deserialize_str<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		visitor.visit_borrowed_str(self.parse_string()?)
+		let mut size: usize = 0;
+		if self.options.string_type == StringType::SizeTagged
+			|| self.options.string_type == StringType::SizeTaggedAndNullTerminated
+		{
+			size = self.raw.take_usize(&self.options.endianness).unwrap();
+		}
+
+		let mut s: String = String::new();
+		match self.options.character_encoding {
+			CharacterEncoding::ASCII | CharacterEncoding::UTF8 => {
+				let mut data: Vec<u8> = vec![];
+				if size > 0 {
+					data = self.raw.take(size).unwrap()
+				} else {
+					while self.raw.peek().unwrap() != 0x00 {
+						data.push(self.raw.next().unwrap());
+					}
+				}
+				s.push_str(String::from_utf8(data).unwrap().as_str());
+			}
+			CharacterEncoding::UTF16 => {
+				let mut data: Vec<u16> = vec![];
+				if size > 0 {
+					for _n in 1..size / 2 {
+						data.push(self.raw.take_u16(&self.options.endianness).unwrap());
+					}
+				}
+				s.push_str(String::from_utf16(&data).unwrap().as_str());
+			}
+		}
+		if self.options.string_type == StringType::NullTerminated
+			|| self.options.string_type == StringType::SizeTaggedAndNullTerminated
+		{
+			if self.raw.peek().unwrap() != 0x00 {
+				return Err(Error::MissingStringTerminator);
+			}
+		}
+		visitor.visit_str(&s)
 	}
 
 	fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
@@ -194,39 +177,32 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 		self.deserialize_str(visitor)
 	}
 
-	// The `Serializer` implementation on the previous page serialized byte
-	// arrays as JSON arrays of bytes. Handle that representation here.
-	fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value>
+	fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		unimplemented!()
+		let len: usize = self.raw.take_usize(&self.options.endianness).unwrap();
+		visitor.visit_bytes(self.raw.take(len).unwrap().as_slice())
 	}
 
-	fn deserialize_byte_buf<V>(self, _visitor: V) -> Result<V::Value>
+	fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		unimplemented!()
+		self.deserialize_bytes(visitor)
 	}
 
-	// An absent optional is represented as the JSON `null` and a present
-	// optional is represented as just the contained value.
-	//
-	// As commented in `Serializer` implementation, this is a lossy
-	// representation. For example the values `Some(())` and `None` both
-	// serialize as just `null`. Unfortunately this is typically what people
-	// expect when working with JSON. Other formats are encouraged to behave
-	// more intelligently if possible.
 	fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		if self.raw.starts_with("null") {
-			self.raw = &self.raw["null".len()..];
+		let flag: u8 = self.raw.next().unwrap();
+		if flag == 0x00 {
 			visitor.visit_none()
-		} else {
+		} else if flag == 0xFF {
 			visitor.visit_some(self)
+		} else {
+			Err(Error::InvalidOptionFlag)
 		}
 	}
 
@@ -235,12 +211,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	where
 		V: Visitor<'de>,
 	{
-		if self.raw.starts_with("null") {
-			self.raw = &self.raw["null".len()..];
-			visitor.visit_unit()
-		} else {
-			Err(Error::ExpectedNull)
-		}
+		visitor.visit_unit()
 	}
 
 	// Unit struct means a named value containing no data.
@@ -254,41 +225,20 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	// As is done here, serializers are encouraged to treat newtype structs as
 	// insignificant wrappers around the data they contain. That means not
 	// parsing anything other than the contained value.
-	fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
+	fn deserialize_newtype_struct<V>(self, name: &'static str, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
 		visitor.visit_newtype_struct(self)
 	}
 
-	// Deserialization of compound types like sequences and maps happens by
-	// passing the visitor an "Access" object that gives it the ability to
-	// iterate through the data contained in the sequence.
 	fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		// Parse the opening bracket of the sequence.
-		if self.next_char()? == '[' {
-			// Give the visitor access to each element of the sequence.
-			let value = visitor.visit_seq(CommaSeparated::new(self))?;
-			// Parse the closing bracket of the sequence.
-			if self.next_char()? == ']' {
-				Ok(value)
-			} else {
-				Err(Error::ExpectedArrayEnd)
-			}
-		} else {
-			Err(Error::ExpectedArray)
-		}
+		unimplemented!()
 	}
 
-	// Tuples look just like sequences in JSON. Some formats may be able to
-	// represent tuples more efficiently.
-	//
-	// As indicated by the length parameter, the `Deserialize` implementation
-	// for a tuple in the Serde data model is required to know the length of the
-	// tuple before even looking at the input data.
 	fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,

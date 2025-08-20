@@ -147,14 +147,13 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 	}
 
 	fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok> {
+		self.serialize_num(v.len()).unwrap();
 		self.serialize_vec(v.to_vec()).unwrap();
 		Ok(())
 	}
 
 	fn serialize_none(self) -> Result<Self::Ok> {
-		if self.options.none_as_null {
-			self.serialize_num(0).unwrap();
-		}
+		self.serialize_num(0).unwrap();
 		Ok(())
 	}
 
@@ -176,30 +175,24 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 
 	fn serialize_unit_variant(
 		self,
-		name: &'static str,
+		_name: &'static str,
 		variant_index: u32,
 		variant: &'static str,
 	) -> Result<Self::Ok> {
 		self.serialize_num(variant_index).unwrap();
-		if self.options.preserve_variant_names {
-			name.serialize(&mut *self).unwrap();
-		}
 		variant.serialize(self)
 	}
 
-	fn serialize_newtype_struct<T>(self, name: &'static str, value: &T) -> Result<Self::Ok>
+	fn serialize_newtype_struct<T>(self, _name: &'static str, value: &T) -> Result<Self::Ok>
 	where
 		T: ?Sized + ser::Serialize,
 	{
-		if self.options.preserve_variant_names {
-			name.serialize(&mut *self).unwrap();
-		}
 		value.serialize(self)
 	}
 
 	fn serialize_newtype_variant<T>(
 		self,
-		name: &'static str,
+		_name: &'static str,
 		variant_index: u32,
 		variant: &'static str,
 		value: &T,
@@ -207,9 +200,6 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 	where
 		T: ?Sized + ser::Serialize,
 	{
-		if self.options.preserve_variant_names {
-			name.serialize(&mut *self).unwrap();
-		}
 		variant_index.serialize(&mut *self).unwrap();
 		variant.serialize(&mut *self).unwrap();
 		value.serialize(self)
@@ -242,14 +232,11 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 
 	fn serialize_tuple_variant(
 		self,
-		name: &'static str,
+		_name: &'static str,
 		variant_index: u32,
 		variant: &'static str,
 		len: usize,
 	) -> Result<Self::SerializeTupleVariant> {
-		if self.options.preserve_variant_names {
-			name.serialize(&mut *self).unwrap();
-		}
 		variant_index.serialize(&mut *self).unwrap();
 		variant.serialize(&mut *self).unwrap();
 		len.serialize(&mut *self).unwrap();

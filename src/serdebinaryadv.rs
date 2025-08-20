@@ -1,9 +1,9 @@
 mod bytes;
-mod common;
 mod de;
 mod error;
 mod options;
 mod ser;
+mod unicode;
 
 pub use de::Deserializer;
 pub use error::*;

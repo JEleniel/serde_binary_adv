@@ -20,6 +20,10 @@ pub enum Error {
 	InvalidASCII,
 	/// invalid Unicode code point
 	InvalidUnicode,
+	/// missict string terminator
+	MissingStringTerminator,
+	/// missing oor invalid Some/None flag
+	InvalidOptionFlag,
 }
 
 impl ser::Error for Error {
@@ -42,6 +46,8 @@ impl Display for Error {
 			Error::Expected(typ) => write!(f, "unexpected type, expected {}", typ),
 			Error::InvalidASCII => write!(f, "nvalid ASCII character"),
 			Error::InvalidUnicode => write!(f, "invalid Unicode character"),
+			Error::MissingStringTerminator => write!(f, "missing string terminator"),
+			Error::InvalidOptionFlag => write!(f, "missing or invalid some/none flag"),
 		}
 	}
 }

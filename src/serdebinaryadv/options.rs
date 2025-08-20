@@ -7,10 +7,6 @@ pub struct Options {
 	pub string_type: StringType,
 	/// how to encode/decode Unicode characters
 	pub character_encoding: CharacterEncoding,
-	/// should the None value be decoded from/written to a null byte
-	pub none_as_null: bool,
-	/// should variant names be preserved
-	pub preserve_variant_names: bool,
 	/// smiple structs
 	pub simple_structs: bool,
 }
@@ -21,8 +17,6 @@ impl Default for Options {
 			endianness: Endianness::Little,
 			string_type: StringType::NullTerminated,
 			character_encoding: CharacterEncoding::UTF8,
-			none_as_null: true,
-			preserve_variant_names: false,
 			simple_structs: true,
 		}
 	}
