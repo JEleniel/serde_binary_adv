@@ -24,14 +24,14 @@ where
 
 impl Serializer {
 	fn serialize_num<T: ToBytes>(self: &mut Self, v: T) -> Result<()> {
-		let be_binding = &mut v.to_be_bytes().as_mut().to_vec();
-		let le_binding = &mut v.to_le_bytes().as_mut().to_vec();
 		let ne_binding = &mut v.to_ne_bytes().as_mut().to_vec();
+		let le_binding = &mut v.to_le_bytes().as_mut().to_vec();
+		let be_binding = &mut v.to_be_bytes().as_mut().to_vec();
 
 		self.output.append(match self.options.endianness {
-			Endianness::Big => be_binding,
-			Endianness::Little => le_binding,
 			Endianness::Native => ne_binding,
+			Endianness::Little => le_binding,
+			Endianness::Big => be_binding,
 		});
 		Ok(())
 	}
@@ -211,7 +211,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 				self.serialize_num(n).unwrap();
 				Ok(self)
 			}
-			None => Ok(self),
+			None => unimplemented!(),
 		}
 	}
 
@@ -249,13 +249,13 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 				self.serialize_num(n).unwrap();
 				Ok(self)
 			}
-			None => Ok(self),
+			None => unimplemented!(),
 		}
 	}
 
 	fn serialize_struct(self, name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
 		if !self.options.simple_structs {
-			self.output.push(0xFF);
+			self.output.push(0xFE);
 			name.serialize(&mut *self).unwrap();
 			len.serialize(&mut *self).unwrap();
 		}
@@ -270,7 +270,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 		len: usize,
 	) -> Result<Self::SerializeStructVariant> {
 		if !self.options.simple_structs {
-			self.output.push(0xFE);
+			self.output.push(0xFD);
 			name.serialize(&mut *self).unwrap();
 			variant_index.serialize(&mut *self).unwrap();
 			variant.serialize(&mut *self).unwrap();

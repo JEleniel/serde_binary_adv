@@ -1,0 +1,13 @@
+[package]
+name = "lowlevel-types"
+version = { workspace = true }
+edition = { workspace = true }
+description = "Rust types for working with low level data structures, such as ASCII characters and strings"
+repository = { workspace = true }
+license = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+exclude = { workspace = true }
+include = { workspace = true }
+
+[dependencies]
