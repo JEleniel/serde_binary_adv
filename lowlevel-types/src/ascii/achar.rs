@@ -14,6 +14,10 @@ pub struct AChar {
 }
 
 impl AChar {
+	pub fn null() -> Self {
+		Self { value: 0x00 }
+	}
+
 	pub fn as_utf8(&self) -> [u8; 4] {
 		if self.value <= 0x7F {
 			[self.value, 0x00, 0x00, 0x00]
@@ -34,23 +38,27 @@ impl AChar {
 		}
 	}
 
+	pub fn char(&self) -> char {
+		char::from(self.value)
+	}
+
 	pub fn eq_ignore_case(&self, other: &AChar) -> bool {
 		self.lowercase() == other.lowercase()
 	}
 
 	pub fn uppercase(&self) -> AChar {
 		if self.is_lowercase() {
-			AChar::from(&(self.value - 0x20))
+			AChar::from(self.value - 0x20)
 		} else {
-			AChar::from(&self.value)
+			AChar::from(self.value)
 		}
 	}
 
 	pub fn lowercase(&self) -> AChar {
 		if self.is_uppercase() {
-			AChar::from(&(self.value + 0x20))
+			AChar::from(self.value + 0x20)
 		} else {
-			AChar::from(&self.value)
+			AChar::from(self.value)
 		}
 	}
 
@@ -121,11 +129,23 @@ impl Display for AChar {
 	}
 }
 
-impl From<&u8> for AChar {
-	fn from(value: &u8) -> Self {
+impl From<u8> for AChar {
+	fn from(value: u8) -> Self {
 		Self {
 			value: value.clone(),
 		}
+	}
+}
+
+impl Into<u8> for AChar {
+	fn into(self) -> u8 {
+		self.value.clone()
+	}
+}
+
+impl From<&AChar> for u8 {
+	fn from(value: &AChar) -> Self {
+		value.value.clone()
 	}
 }
 
@@ -136,13 +156,13 @@ mod tests {
 	#[test]
 	fn test_utf8() {
 		// Test a specific, known conversion
-		let nbsp = AChar::from(&(0xA0 as u8));
+		let nbsp = AChar::from((0xA0 as u8));
 		assert!(nbsp.as_utf8() == [0xC2, 0xA0, 0x00, 0x00]);
 		assert!(nbsp.len_utf8() == 2);
 
 		// Test that all valid ASCII characters convert correctly
 		for c in achar::MIN..=achar::MAX {
-			let ch: AChar = AChar::from(&c);
+			let ch: AChar = AChar::from(c);
 			assert!(if c <= 0x7F {
 				ch.as_utf8() == [c, 0x00, 0x00, 0x00]
 			} else {
@@ -154,8 +174,8 @@ mod tests {
 	#[test]
 	fn test_comparisons() {
 		for c in achar::MIN..=achar::MAX {
-			let cha = AChar::from(&c);
-			let chb = AChar::from(&c);
+			let cha = AChar::from(c);
+			let chb = AChar::from(c);
 
 			assert_eq!(cha, chb);
 			match c {
