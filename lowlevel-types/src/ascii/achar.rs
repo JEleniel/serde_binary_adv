@@ -4,42 +4,37 @@
 //!
 use std::fmt::Display;
 
+use serde::{Deserialize, Deserializer, Serialize, de::Visitor};
+
 // ASCII ranges
 pub const MIN: u8 = 0x00;
 pub const MAX: u8 = 0xFF;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
-pub struct AChar {
-	value: u8,
-}
+pub struct AChar(pub u8);
 
 impl AChar {
 	pub fn null() -> Self {
-		Self { value: 0x00 }
+		AChar(0x00)
 	}
 
 	pub fn as_utf8(&self) -> [u8; 4] {
-		if self.value <= 0x7F {
-			[self.value, 0x00, 0x00, 0x00]
+		if self.0 <= 0x7F {
+			[self.0, 0x00, 0x00, 0x00]
 		} else {
-			[
-				self.value >> 6 & 0x1F | 0xC0,
-				self.value & 0x3F | 0x80,
-				0x00,
-				0x00,
-			]
+			[self.0 >> 6 & 0x1F | 0xC0, self.0 & 0x3F | 0x80, 0x00, 0x00]
 		}
 	}
 
 	pub fn len_utf8(&self) -> usize {
-		match self.value {
+		match self.0 {
 			0x00..0x80 => 1,
 			_ => 2,
 		}
 	}
 
 	pub fn char(&self) -> char {
-		char::from(self.value)
+		char::from(self.0)
 	}
 
 	pub fn eq_ignore_case(&self, other: &AChar) -> bool {
@@ -48,17 +43,17 @@ impl AChar {
 
 	pub fn uppercase(&self) -> AChar {
 		if self.is_lowercase() {
-			AChar::from(self.value - 0x20)
+			AChar(self.0 - 0x20)
 		} else {
-			AChar::from(self.value)
+			AChar(self.0)
 		}
 	}
 
 	pub fn lowercase(&self) -> AChar {
 		if self.is_uppercase() {
-			AChar::from(self.value + 0x20)
+			AChar(self.0 + 0x20)
 		} else {
-			AChar::from(self.value)
+			AChar(self.0)
 		}
 	}
 
@@ -67,85 +62,106 @@ impl AChar {
 	}
 
 	pub fn is_uppercase(&self) -> bool {
-		match self.value {
+		match self.0 {
 			0x41..=0x5A => true,
 			_ => false,
 		}
 	}
 
 	pub fn is_lowercase(&self) -> bool {
-		match self.value {
+		match self.0 {
 			0x61..=0x7A => true,
 			_ => false,
 		}
 	}
 
 	pub fn is_numeric(&self) -> bool {
-		match self.value {
+		match self.0 {
 			0x30..=0x39 => true,
 			_ => false,
 		}
 	}
 
 	pub fn is_punctuation(&self) -> bool {
-		match self.value {
+		match self.0 {
 			0x21..=0x29 | 0x3A..=0x40 | 0x5B..=0x60 | 0x7B..=0x7E => true,
 			_ => false,
 		}
 	}
 
 	pub fn is_control(&self) -> bool {
-		match self.value {
+		match self.0 {
 			0x00..=0x1F => true,
 			_ => false,
 		}
 	}
 
 	pub fn is_whitespace(&self) -> bool {
-		match self.value {
+		match self.0 {
 			0x09 | 0x0A | 0x0C | 0x0D | 0x20 => true,
 			_ => false,
 		}
 	}
 
 	pub fn is_null(&self) -> bool {
-		self.value == 0x00
+		self.0 == 0x00
 	}
 }
 
 impl Default for AChar {
 	fn default() -> Self {
-		Self { value: 0x00 }
+		Self(0x00)
 	}
 }
 
 impl Display for AChar {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		if !self.is_control() {
-			write!(f, "{}", char::from(self.value))
+			write!(f, "{}", char::from(self.0))
 		} else {
 			Ok(())
 		}
 	}
 }
 
-impl From<u8> for AChar {
-	fn from(value: u8) -> Self {
-		Self {
-			value: value.clone(),
-		}
+impl From<AChar> for u8 {
+	fn from(value: AChar) -> Self {
+		value.0.clone()
 	}
 }
 
-impl Into<u8> for AChar {
-	fn into(self) -> u8 {
-		self.value.clone()
+impl Serialize for AChar {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		serializer.serialize_u8(self.0)
 	}
 }
 
-impl From<&AChar> for u8 {
-	fn from(value: &AChar) -> Self {
-		value.value.clone()
+impl<'de> Deserialize<'de> for AChar {
+	fn deserialize<D>(deserializer: D) -> Result<AChar, D::Error>
+	where
+		D: Deserializer<'de>,
+	{
+		deserializer.deserialize_u8(ACharVisitor)
+	}
+}
+
+pub struct ACharVisitor;
+
+impl<'de> Visitor<'de> for ACharVisitor {
+	type Value = AChar;
+
+	fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+		formatter.write_str("a single ASCII character")
+	}
+
+	fn visit_u8<E>(self, v: u8) -> Result<Self::Value, E>
+	where
+		E: serde::de::Error,
+	{
+		Ok(AChar(v))
 	}
 }
 
@@ -156,13 +172,13 @@ mod tests {
 	#[test]
 	fn test_utf8() {
 		// Test a specific, known conversion
-		let nbsp = AChar::from((0xA0 as u8));
+		let nbsp = AChar(0xA0 as u8);
 		assert!(nbsp.as_utf8() == [0xC2, 0xA0, 0x00, 0x00]);
 		assert!(nbsp.len_utf8() == 2);
 
 		// Test that all valid ASCII characters convert correctly
 		for c in achar::MIN..=achar::MAX {
-			let ch: AChar = AChar::from(c);
+			let ch: AChar = AChar(c);
 			assert!(if c <= 0x7F {
 				ch.as_utf8() == [c, 0x00, 0x00, 0x00]
 			} else {
@@ -174,8 +190,8 @@ mod tests {
 	#[test]
 	fn test_comparisons() {
 		for c in achar::MIN..=achar::MAX {
-			let cha = AChar::from(c);
-			let chb = AChar::from(c);
+			let cha = AChar(c);
+			let chb = AChar(c);
 
 			assert_eq!(cha, chb);
 			match c {
