@@ -123,7 +123,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 		}
 		// Write the length (bytes) header if needed
 		match self.options.string_type {
-			StringType::NullTerminated => {}
+			StringType::NullTerminated | StringType::FixedLen => {}
 			_ => {
 				self.serialize_num(v.bytes().len()).unwrap();
 			}
@@ -147,21 +147,20 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 	}
 
 	fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok> {
-		self.serialize_num(v.len()).unwrap();
-		self.serialize_vec(v.to_vec()).unwrap();
-		Ok(())
+		v.serialize(&mut *self)
 	}
 
 	fn serialize_none(self) -> Result<Self::Ok> {
-		self.serialize_num(0).unwrap();
-		Ok(())
+		self.serialize_num(0)
 	}
 
 	fn serialize_some<T>(self, value: &T) -> Result<Self::Ok>
 	where
 		T: ?Sized + ser::Serialize,
 	{
-		self.serialize_num(0xFF).unwrap();
+		if self.options.self_describing {
+			self.serialize_num(0xFF).unwrap();
+		}
 		value.serialize(self)
 	}
 
@@ -169,30 +168,43 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 		Ok(())
 	}
 
-	fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok> {
-		Ok(())
+	fn serialize_unit_struct(self, name: &'static str) -> Result<Self::Ok> {
+		if self.options.self_describing {
+			self.serialize_str(name)
+		} else {
+			Ok(())
+		}
 	}
 
 	fn serialize_unit_variant(
 		self,
-		_name: &'static str,
+		name: &'static str,
 		variant_index: u32,
 		variant: &'static str,
 	) -> Result<Self::Ok> {
-		self.serialize_num(variant_index).unwrap();
-		variant.serialize(self)
+		if self.options.self_describing {
+			name.serialize(&mut *self).unwrap();
+		}
+		variant_index.serialize(&mut *self).unwrap();
+		if self.options.self_describing {
+			variant.serialize(&mut *self).unwrap();
+		}
+		Ok(())
 	}
 
-	fn serialize_newtype_struct<T>(self, _name: &'static str, value: &T) -> Result<Self::Ok>
+	fn serialize_newtype_struct<T>(self, name: &'static str, value: &T) -> Result<Self::Ok>
 	where
 		T: ?Sized + ser::Serialize,
 	{
+		if self.options.self_describing {
+			name.serialize(&mut *self).unwrap();
+		}
 		value.serialize(self)
 	}
 
 	fn serialize_newtype_variant<T>(
 		self,
-		_name: &'static str,
+		name: &'static str,
 		variant_index: u32,
 		variant: &'static str,
 		value: &T,
@@ -200,8 +212,13 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 	where
 		T: ?Sized + ser::Serialize,
 	{
+		if self.options.self_describing {
+			name.serialize(&mut *self).unwrap();
+		}
 		variant_index.serialize(&mut *self).unwrap();
-		variant.serialize(&mut *self).unwrap();
+		if self.options.self_describing {
+			variant.serialize(&mut *self);
+		}
 		value.serialize(self)
 	}
 
@@ -216,7 +233,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 	}
 
 	fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple> {
-		self.serialize_num(len).unwrap();
+		len.serialize(&mut *self).unwrap();
 		Ok(self)
 	}
 
@@ -225,20 +242,27 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 		name: &'static str,
 		len: usize,
 	) -> Result<Self::SerializeTupleStruct> {
-		name.serialize(&mut *self).unwrap();
+		if self.options.self_describing {
+			name.serialize(&mut *self).unwrap();
+		}
 		len.serialize(&mut *self).unwrap();
 		Ok(self)
 	}
 
 	fn serialize_tuple_variant(
 		self,
-		_name: &'static str,
+		name: &'static str,
 		variant_index: u32,
 		variant: &'static str,
 		len: usize,
 	) -> Result<Self::SerializeTupleVariant> {
+		if self.options.self_describing {
+			name.serialize(&mut *self).unwrap();
+		}
 		variant_index.serialize(&mut *self).unwrap();
-		variant.serialize(&mut *self).unwrap();
+		if self.options.self_describing {
+			variant.serialize(&mut *self).unwrap();
+		}
 		len.serialize(&mut *self).unwrap();
 		Ok(self)
 	}
@@ -246,7 +270,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 	fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap> {
 		match len {
 			Some(n) => {
-				self.serialize_num(n).unwrap();
+				n.serialize(&mut *self).unwrap();
 				Ok(self)
 			}
 			None => unimplemented!(),
@@ -254,7 +278,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 	}
 
 	fn serialize_struct(self, name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
-		if !self.options.simple_structs {
+		if self.options.self_describing {
 			self.output.push(0xFE);
 			name.serialize(&mut *self).unwrap();
 			len.serialize(&mut *self).unwrap();
@@ -269,10 +293,12 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 		variant: &'static str,
 		len: usize,
 	) -> Result<Self::SerializeStructVariant> {
-		if !self.options.simple_structs {
+		if self.options.self_describing {
 			self.output.push(0xFD);
 			name.serialize(&mut *self).unwrap();
-			variant_index.serialize(&mut *self).unwrap();
+		}
+		variant_index.serialize(&mut *self).unwrap();
+		if self.options.self_describing {
 			variant.serialize(&mut *self).unwrap();
 			len.serialize(&mut *self).unwrap();
 		}

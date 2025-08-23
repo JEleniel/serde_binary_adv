@@ -13,13 +13,13 @@ pub struct AString {
 impl AString {
 	pub fn new() -> Self {
 		Self {
-			achars: vec![],
+			achars: Vec::new(),
 			fixed_length: false,
 		}
 	}
 
 	pub fn new_of_size(size: usize) -> Self {
-		let v: &mut Vec<AChar> = &mut vec![];
+		let v: &mut Vec<AChar> = &mut Vec::new();
 		v.resize(size, AChar(0x00 as u8));
 		Self {
 			achars: v.clone(),
@@ -28,7 +28,7 @@ impl AString {
 	}
 
 	pub fn fixed(length: usize) -> Self {
-		let v: &mut Vec<AChar> = &mut vec![];
+		let v: &mut Vec<AChar> = &mut Vec::new();
 		v.resize(length, AChar(0x00 as u8));
 		Self {
 			achars: v.clone(),
@@ -61,7 +61,7 @@ impl PartialEq<AString> for AString {
 
 impl PartialEq<&str> for AString {
 	fn eq(&self, other: &&str) -> bool {
-		let s = String::from(*other);
+		let s = String::from(self);
 		s.as_str() == *other
 	}
 }
@@ -103,7 +103,7 @@ impl TryFrom<&String> for AString {
 				offset: None,
 			})
 		} else {
-			let s = &mut Self::new_of_size(value.len());
+			let s = &mut Self::new();
 			for c in value.chars() {
 				s.achars.push(AChar(c as u8));
 			}
@@ -115,7 +115,17 @@ impl TryFrom<&String> for AString {
 impl From<AString> for String {
 	fn from(value: AString) -> Self {
 		let s = &mut String::new();
-		for c in value.achars {
+		for c in &value.achars {
+			s.push(c.char());
+		}
+		s.clone()
+	}
+}
+
+impl From<&AString> for String {
+	fn from(value: &AString) -> Self {
+		let s = &mut String::new();
+		for c in &value.achars {
 			s.push(c.char());
 		}
 		s.clone()

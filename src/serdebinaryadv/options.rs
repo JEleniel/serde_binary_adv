@@ -7,8 +7,8 @@ pub struct Options {
 	pub string_type: StringType,
 	/// how to encode/decode Unicode characters
 	pub character_encoding: CharacterEncoding,
-	/// smiple structs
-	pub simple_structs: bool,
+	/// whether all objects should be self describing
+	pub self_describing: bool,
 }
 
 impl Default for Options {
@@ -17,7 +17,7 @@ impl Default for Options {
 			endianness: Endianness::Little,
 			string_type: StringType::NullTerminated,
 			character_encoding: CharacterEncoding::UTF8,
-			simple_structs: true,
+			self_describing: false,
 		}
 	}
 }
@@ -36,6 +36,8 @@ pub enum Endianness {
 /// how to encode/decode strings
 #[derive(Debug, PartialEq, Clone)]
 pub enum StringType {
+	/// fixed length
+	FixedLen,
 	/// c type null terminated
 	NullTerminated,
 	/// prefixed with a length in bytes

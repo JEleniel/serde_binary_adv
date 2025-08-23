@@ -116,10 +116,10 @@ impl Default for AChar {
 
 impl Display for AChar {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		if !self.is_control() {
-			write!(f, "{}", char::from(self.0))
+		if self.is_control() {
+			write!(f, "\0x{:X}", self.0)
 		} else {
-			Ok(())
+			write!(f, "{}", char::from(self.0))
 		}
 	}
 }
