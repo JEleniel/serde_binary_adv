@@ -121,7 +121,8 @@ impl<const N: usize> Serialize for FixedLengthString<N> {
 	where
 		S: serde::Serializer,
 	{
-		serializer.serialize_bytes(&self.as_bytes() as &[u8])
+		let bytes = &self.as_bytes() as &[u8];
+		serializer.serialize_bytes(bytes)
 	}
 }
 
@@ -146,7 +147,7 @@ impl<'de, const N: usize> Visitor<'de> for AStringVisitor<N> {
 		formatter.write_str(format!("an array of {} ASCII bytes", N).as_str())
 	}
 
-	fn visit_borrowed_bytes<E>(self, v: &'de [u8]) -> Result<Self::Value, E>
+	fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
 	where
 		E: serde::de::Error,
 	{

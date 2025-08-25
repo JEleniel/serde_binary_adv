@@ -1,4 +1,4 @@
-use super::error::{Error, Result};
+use super::error::{BinaryError, Result};
 use crate::{CharacterEncoding, Endianness, Options, StringType};
 use num::traits::ToBytes;
 use serde::{Serialize, ser};
@@ -10,19 +10,20 @@ pub struct Serializer {
 }
 
 /// convert a Rust struct to raw bytes according to the options specified
-pub fn to_bytes<T>(value: &T, options: Options) -> super::error::Result<Vec<u8>>
-where
-	T: Serialize,
-{
-	let mut serializer = Serializer {
-		output: vec![],
-		options,
-	};
-	value.serialize(&mut serializer)?;
-	Ok(serializer.output)
-}
 
 impl Serializer {
+	pub fn to_bytes<T>(value: &T, options: Options) -> super::error::Result<Vec<u8>>
+	where
+		T: Serialize,
+	{
+		let mut serializer = Serializer {
+			output: Vec::new(),
+			options,
+		};
+		value.serialize(&mut serializer)?;
+		Ok(serializer.output)
+	}
+
 	fn serialize_num<T: ToBytes>(self: &mut Self, v: T) -> Result<()> {
 		let ne_binding = &mut v.to_ne_bytes().as_mut().to_vec();
 		let le_binding = &mut v.to_le_bytes().as_mut().to_vec();
@@ -46,7 +47,7 @@ impl Serializer {
 
 impl<'a> ser::Serializer for &'a mut Serializer {
 	type Ok = ();
-	type Error = Error;
+	type Error = BinaryError;
 
 	type SerializeSeq = Self;
 	type SerializeTuple = Self;
@@ -102,7 +103,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 
 	fn serialize_char(self, v: char) -> Result<Self::Ok> {
 		if self.options.character_encoding == CharacterEncoding::ASCII && !v.is_ascii() {
-			return Err(Error::InvalidASCII);
+			return Err(BinaryError::InvalidASCII);
 		}
 		match self.options.character_encoding {
 			CharacterEncoding::ASCII | CharacterEncoding::UTF8 => {
@@ -119,7 +120,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 
 	fn serialize_str(self, v: &str) -> Result<Self::Ok> {
 		if self.options.character_encoding == CharacterEncoding::ASCII && !v.is_ascii() {
-			return Err(Error::InvalidASCII);
+			return Err(BinaryError::InvalidASCII);
 		}
 		// Write the length (bytes) header if needed
 		match self.options.string_type {
@@ -147,7 +148,10 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 	}
 
 	fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok> {
-		v.serialize(&mut *self)
+		for b in v {
+			self.serialize_u8(*b).unwrap();
+		}
+		Ok(())
 	}
 
 	fn serialize_none(self) -> Result<Self::Ok> {
@@ -168,37 +172,24 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 		Ok(())
 	}
 
-	fn serialize_unit_struct(self, name: &'static str) -> Result<Self::Ok> {
-		if self.options.self_describing {
-			self.serialize_str(name)
-		} else {
-			Ok(())
-		}
+	fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok> {
+		Ok(())
 	}
 
 	fn serialize_unit_variant(
 		self,
-		name: &'static str,
+		_name: &'static str,
 		variant_index: u32,
-		variant: &'static str,
+		_variant: &'static str,
 	) -> Result<Self::Ok> {
-		if self.options.self_describing {
-			name.serialize(&mut *self).unwrap();
-		}
 		variant_index.serialize(&mut *self).unwrap();
-		if self.options.self_describing {
-			variant.serialize(&mut *self).unwrap();
-		}
 		Ok(())
 	}
 
-	fn serialize_newtype_struct<T>(self, name: &'static str, value: &T) -> Result<Self::Ok>
+	fn serialize_newtype_struct<T>(self, _name: &'static str, value: &T) -> Result<Self::Ok>
 	where
 		T: ?Sized + ser::Serialize,
 	{
-		if self.options.self_describing {
-			name.serialize(&mut *self).unwrap();
-		}
 		value.serialize(self)
 	}
 
@@ -217,7 +208,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 		}
 		variant_index.serialize(&mut *self).unwrap();
 		if self.options.self_describing {
-			variant.serialize(&mut *self);
+			variant.serialize(&mut *self).unwrap();
 		}
 		value.serialize(self)
 	}
@@ -239,12 +230,9 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 
 	fn serialize_tuple_struct(
 		self,
-		name: &'static str,
+		_name: &'static str,
 		len: usize,
 	) -> Result<Self::SerializeTupleStruct> {
-		if self.options.self_describing {
-			name.serialize(&mut *self).unwrap();
-		}
 		len.serialize(&mut *self).unwrap();
 		Ok(self)
 	}
@@ -308,7 +296,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 
 impl<'a> ser::SerializeSeq for &'a mut Serializer {
 	type Ok = ();
-	type Error = Error;
+	type Error = BinaryError;
 
 	fn serialize_element<T>(&mut self, value: &T) -> Result<()>
 	where
@@ -325,7 +313,7 @@ impl<'a> ser::SerializeSeq for &'a mut Serializer {
 
 impl<'a> ser::SerializeTuple for &'a mut Serializer {
 	type Ok = ();
-	type Error = Error;
+	type Error = BinaryError;
 
 	fn serialize_element<T>(&mut self, value: &T) -> Result<()>
 	where
@@ -341,7 +329,7 @@ impl<'a> ser::SerializeTuple for &'a mut Serializer {
 
 impl<'a> ser::SerializeTupleStruct for &'a mut Serializer {
 	type Ok = ();
-	type Error = Error;
+	type Error = BinaryError;
 
 	fn serialize_field<T>(&mut self, value: &T) -> Result<()>
 	where
@@ -357,7 +345,7 @@ impl<'a> ser::SerializeTupleStruct for &'a mut Serializer {
 
 impl<'a> ser::SerializeTupleVariant for &'a mut Serializer {
 	type Ok = ();
-	type Error = Error;
+	type Error = BinaryError;
 
 	fn serialize_field<T>(&mut self, value: &T) -> Result<()>
 	where
@@ -373,7 +361,7 @@ impl<'a> ser::SerializeTupleVariant for &'a mut Serializer {
 
 impl<'a> ser::SerializeMap for &'a mut Serializer {
 	type Ok = ();
-	type Error = Error;
+	type Error = BinaryError;
 
 	fn serialize_key<T>(&mut self, key: &T) -> Result<()>
 	where
@@ -396,7 +384,7 @@ impl<'a> ser::SerializeMap for &'a mut Serializer {
 
 impl<'a> ser::SerializeStruct for &'a mut Serializer {
 	type Ok = ();
-	type Error = Error;
+	type Error = BinaryError;
 
 	fn serialize_field<T>(&mut self, _key: &'static str, value: &T) -> Result<()>
 	where
@@ -412,7 +400,7 @@ impl<'a> ser::SerializeStruct for &'a mut Serializer {
 
 impl<'a> ser::SerializeStructVariant for &'a mut Serializer {
 	type Ok = ();
-	type Error = Error;
+	type Error = BinaryError;
 
 	fn serialize_field<T>(&mut self, _key: &'static str, value: &T) -> Result<()>
 	where
