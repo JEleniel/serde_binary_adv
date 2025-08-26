@@ -1,39 +1,26 @@
+use crate::{NONE_FLAG, SOME_FLAG, STRUCT_FLAG, STRUCT_VARIANT_FLAG};
+
 use super::error::{BinaryError, Result};
-use crate::{CharacterEncoding, Endianness, Options, StringType};
 use num::traits::ToBytes;
 use serde::{Serialize, ser};
 
 /// serializes a Rust struct into raw bytes according to the provided options
 pub struct Serializer {
 	output: Vec<u8>,
-	options: Options,
 }
 
-/// convert a Rust struct to raw bytes according to the options specified
-
 impl Serializer {
-	pub fn to_bytes<T>(value: &T, options: Options) -> super::error::Result<Vec<u8>>
+	pub fn to_bytes<T>(value: &T) -> super::error::Result<Vec<u8>>
 	where
 		T: Serialize,
 	{
-		let mut serializer = Serializer {
-			output: Vec::new(),
-			options,
-		};
+		let mut serializer = Serializer { output: Vec::new() };
 		value.serialize(&mut serializer)?;
 		Ok(serializer.output)
 	}
 
 	fn serialize_num<T: ToBytes>(self: &mut Self, v: T) -> Result<()> {
-		let ne_binding = &mut v.to_ne_bytes().as_mut().to_vec();
-		let le_binding = &mut v.to_le_bytes().as_mut().to_vec();
-		let be_binding = &mut v.to_be_bytes().as_mut().to_vec();
-
-		self.output.append(match self.options.endianness {
-			Endianness::Native => ne_binding,
-			Endianness::Little => le_binding,
-			Endianness::Big => be_binding,
-		});
+		self.output.append(&mut v.to_le_bytes().as_mut().to_vec());
 		Ok(())
 	}
 
@@ -61,22 +48,6 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 		self.serialize_num(if v { 1 } else { 0 })
 	}
 
-	fn serialize_i8(self, v: i8) -> Result<Self::Ok> {
-		self.serialize_num(v)
-	}
-
-	fn serialize_i16(self, v: i16) -> Result<Self::Ok> {
-		self.serialize_num(v)
-	}
-
-	fn serialize_i32(self, v: i32) -> Result<Self::Ok> {
-		self.serialize_num(v)
-	}
-
-	fn serialize_i64(self, v: i64) -> Result<Self::Ok> {
-		self.serialize_num(v)
-	}
-
 	fn serialize_u8(self, v: u8) -> Result<Self::Ok> {
 		self.serialize_num(v)
 	}
@@ -93,6 +64,22 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 		self.serialize_num(v)
 	}
 
+	fn serialize_i8(self, v: i8) -> Result<Self::Ok> {
+		self.serialize_num(v)
+	}
+
+	fn serialize_i16(self, v: i16) -> Result<Self::Ok> {
+		self.serialize_num(v)
+	}
+
+	fn serialize_i32(self, v: i32) -> Result<Self::Ok> {
+		self.serialize_num(v)
+	}
+
+	fn serialize_i64(self, v: i64) -> Result<Self::Ok> {
+		self.serialize_num(v)
+	}
+
 	fn serialize_f32(self, v: f32) -> Result<Self::Ok> {
 		self.serialize_num(v)
 	}
@@ -102,69 +89,30 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 	}
 
 	fn serialize_char(self, v: char) -> Result<Self::Ok> {
-		if self.options.character_encoding == CharacterEncoding::ASCII && !v.is_ascii() {
-			return Err(BinaryError::InvalidASCII);
-		}
-		match self.options.character_encoding {
-			CharacterEncoding::ASCII | CharacterEncoding::UTF8 => {
-				let mut buf: [u8; 4] = [0, 0, 0, 0];
-				self.serialize_vec(v.encode_utf8(&mut buf).as_bytes().to_vec())
-			}
-			CharacterEncoding::UTF16 => {
-				let mut buf: [u16; 2] = [0, 0];
-				let nbuf = v.encode_utf16(&mut buf).to_vec();
-				self.serialize_vec(nbuf)
-			}
-		}
+		let mut buf: [u8; 4] = [0, 0, 0, 0];
+		self.serialize_vec(v.encode_utf8(&mut buf).as_bytes().to_vec())
 	}
 
 	fn serialize_str(self, v: &str) -> Result<Self::Ok> {
-		if self.options.character_encoding == CharacterEncoding::ASCII && !v.is_ascii() {
-			return Err(BinaryError::InvalidASCII);
-		}
-		// Write the length (bytes) header if needed
-		match self.options.string_type {
-			StringType::NullTerminated | StringType::FixedLen => {}
-			_ => {
-				self.serialize_num(v.bytes().len()).unwrap();
-			}
-		}
-		match self.options.character_encoding {
-			CharacterEncoding::ASCII | CharacterEncoding::UTF8 => {
-				self.serialize_vec(v.as_bytes().to_vec()).unwrap();
-			}
-			CharacterEncoding::UTF16 => {
-				self.serialize_vec(v.encode_utf16().collect()).unwrap();
-			}
-		}
-		// Write the null ternimator, if required
-		match self.options.string_type {
-			StringType::NullTerminated | StringType::SizeTaggedAndNullTerminated => {
-				self.serialize_num(0).unwrap();
-			}
-			_ => {}
-		}
-		Ok(())
+		self.serialize_num(v.bytes().len()).unwrap();
+		self.serialize_vec(v.as_bytes().to_vec())
 	}
 
 	fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok> {
-		for b in v {
-			self.serialize_u8(*b).unwrap();
-		}
+		self.serialize_num(v.len()).unwrap();
+		self.serialize_vec(v.to_vec()).unwrap();
 		Ok(())
 	}
 
 	fn serialize_none(self) -> Result<Self::Ok> {
-		self.serialize_num(0)
+		self.serialize_num(NONE_FLAG)
 	}
 
 	fn serialize_some<T>(self, value: &T) -> Result<Self::Ok>
 	where
 		T: ?Sized + ser::Serialize,
 	{
-		if self.options.self_describing {
-			self.serialize_num(0xFF).unwrap();
-		}
+		self.serialize_num(SOME_FLAG).unwrap();
 		value.serialize(self)
 	}
 
@@ -195,21 +143,15 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 
 	fn serialize_newtype_variant<T>(
 		self,
-		name: &'static str,
+		_name: &'static str,
 		variant_index: u32,
-		variant: &'static str,
+		_variant: &'static str,
 		value: &T,
 	) -> Result<Self::Ok>
 	where
 		T: ?Sized + ser::Serialize,
 	{
-		if self.options.self_describing {
-			name.serialize(&mut *self).unwrap();
-		}
 		variant_index.serialize(&mut *self).unwrap();
-		if self.options.self_describing {
-			variant.serialize(&mut *self).unwrap();
-		}
 		value.serialize(self)
 	}
 
@@ -239,18 +181,12 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 
 	fn serialize_tuple_variant(
 		self,
-		name: &'static str,
+		_name: &'static str,
 		variant_index: u32,
-		variant: &'static str,
+		_variant: &'static str,
 		len: usize,
 	) -> Result<Self::SerializeTupleVariant> {
-		if self.options.self_describing {
-			name.serialize(&mut *self).unwrap();
-		}
 		variant_index.serialize(&mut *self).unwrap();
-		if self.options.self_describing {
-			variant.serialize(&mut *self).unwrap();
-		}
 		len.serialize(&mut *self).unwrap();
 		Ok(self)
 	}
@@ -266,11 +202,10 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 	}
 
 	fn serialize_struct(self, name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
-		if self.options.self_describing {
-			self.output.push(0xFE);
-			name.serialize(&mut *self).unwrap();
-			len.serialize(&mut *self).unwrap();
-		}
+		self.output.push(STRUCT_FLAG);
+		name.serialize(&mut *self).unwrap();
+		len.serialize(&mut *self).unwrap();
+
 		Ok(self)
 	}
 
@@ -278,18 +213,14 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 		self,
 		name: &'static str,
 		variant_index: u32,
-		variant: &'static str,
+		_variant: &'static str,
 		len: usize,
 	) -> Result<Self::SerializeStructVariant> {
-		if self.options.self_describing {
-			self.output.push(0xFD);
-			name.serialize(&mut *self).unwrap();
-		}
+		self.output.push(STRUCT_VARIANT_FLAG);
+		name.serialize(&mut *self).unwrap();
+
 		variant_index.serialize(&mut *self).unwrap();
-		if self.options.self_describing {
-			variant.serialize(&mut *self).unwrap();
-			len.serialize(&mut *self).unwrap();
-		}
+		len.serialize(&mut *self).unwrap();
 		Ok(self)
 	}
 }

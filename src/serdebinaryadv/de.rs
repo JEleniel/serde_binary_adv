@@ -1,5 +1,6 @@
+use crate::{NONE_FLAG, SOME_FLAG};
+
 use super::error::{BinaryError, Result};
-use crate::{CharacterEncoding, Endianness, Options, StringType};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, de::value::SeqDeserializer};
 
@@ -132,60 +133,40 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	where
 		V: Visitor<'de>,
 	{
-		match self.options.character_encoding {
-			CharacterEncoding::ASCII => visitor.visit_char(char::from(self.next().unwrap())),
-			CharacterEncoding::UTF8 => {
-				let b1 = self.next().unwrap();
-				if b1 <= 0x7F {
-					visitor.visit_char(char::from(b1))
-				} else if b1 >= 0xC0 && b1 <= 0xDF {
-					visitor.visit_char(
-						String::from_utf8(vec![b1, self.next().unwrap()])
-							.unwrap()
-							.chars()
-							.next()
-							.unwrap(),
-					)
-				} else if b1 >= 0xE0 && b1 <= 0xEF {
-					visitor.visit_char(
-						String::from_utf8(vec![b1, self.next().unwrap(), self.next().unwrap()])
-							.unwrap()
-							.chars()
-							.next()
-							.unwrap(),
-					)
-				} else if b1 >= 0xF0 {
-					visitor.visit_char(
-						String::from_utf8(vec![
-							b1,
-							self.next().unwrap(),
-							self.next().unwrap(),
-							self.next().unwrap(),
-						])
-						.unwrap()
-						.chars()
-						.next()
-						.unwrap(),
-					)
-				} else {
-					return Err(BinaryError::InvalidUnicode);
-				}
-			}
-			CharacterEncoding::UTF16 => {
-				let b1: u16 = self.take_u16().unwrap();
-
-				if b1 <= 0xD7FF || b1 >= 0xE000 {
-					visitor.visit_char(String::from_utf16(&[b1]).unwrap().chars().next().unwrap())
-				} else {
-					visitor.visit_char(
-						String::from_utf16(&[b1, self.take_u16().unwrap()])
-							.unwrap()
-							.chars()
-							.next()
-							.unwrap(),
-					)
-				}
-			}
+		let b1 = self.next().unwrap();
+		if b1 <= 0x7F {
+			visitor.visit_char(char::from(b1))
+		} else if b1 >= 0xC0 && b1 <= 0xDF {
+			visitor.visit_char(
+				String::from_utf8(vec![b1, self.next().unwrap()])
+					.unwrap()
+					.chars()
+					.next()
+					.unwrap(),
+			)
+		} else if b1 >= 0xE0 && b1 <= 0xEF {
+			visitor.visit_char(
+				String::from_utf8(vec![b1, self.next().unwrap(), self.next().unwrap()])
+					.unwrap()
+					.chars()
+					.next()
+					.unwrap(),
+			)
+		} else if b1 >= 0xF0 {
+			visitor.visit_char(
+				String::from_utf8(vec![
+					b1,
+					self.next().unwrap(),
+					self.next().unwrap(),
+					self.next().unwrap(),
+				])
+				.unwrap()
+				.chars()
+				.next()
+				.unwrap(),
+			)
+		} else {
+			return Err(BinaryError::InvalidUnicode);
 		}
 	}
 
@@ -193,43 +174,11 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	where
 		V: Visitor<'de>,
 	{
-		let mut size: usize = 0;
-		if self.options.string_type == StringType::SizeTagged
-			|| self.options.string_type == StringType::SizeTaggedAndNullTerminated
-		{
-			size = self.take_usize().unwrap();
-		}
+		let size = self.take_usize().unwrap();
 
 		let mut s: String = String::new();
-		match self.options.character_encoding {
-			CharacterEncoding::ASCII | CharacterEncoding::UTF8 => {
-				let mut data: Vec<u8> = vec![];
-				if size > 0 {
-					data = self.take(size).unwrap()
-				} else {
-					while self.peek().unwrap() != 0x00 {
-						data.push(self.next().unwrap());
-					}
-				}
-				s.push_str(String::from_utf8(data).unwrap().as_str());
-			}
-			CharacterEncoding::UTF16 => {
-				let mut data: Vec<u16> = vec![];
-				if size > 0 {
-					for _n in 1..size / 2 {
-						data.push(self.take_u16().unwrap());
-					}
-				}
-				s.push_str(String::from_utf16(&data).unwrap().as_str());
-			}
-		}
-		if self.options.string_type == StringType::NullTerminated
-			|| self.options.string_type == StringType::SizeTaggedAndNullTerminated
-		{
-			if self.next().unwrap() != 0x00 {
-				return Err(BinaryError::MissingStringTerminator);
-			}
-		}
+		let data: Vec<u8> = self.take(size).unwrap();
+		s.push_str(String::from_utf8(data).unwrap().as_str());
 		visitor.visit_str(&s)
 	}
 
@@ -244,7 +193,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	where
 		V: Visitor<'de>,
 	{
-		let bytes = self.take(size_of::<V::Value>()).unwrap();
+		let len = self.take_usize().unwrap();
+		let bytes = self.take(len).unwrap();
 		visitor.visit_bytes(&bytes)
 	}
 
@@ -260,9 +210,9 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 		V: Visitor<'de>,
 	{
 		let flag: u8 = self.next().unwrap();
-		if flag == 0x00 {
+		if flag == NONE_FLAG {
 			visitor.visit_none()
-		} else if flag == 0xFF {
+		} else if flag == SOME_FLAG {
 			visitor.visit_some(self)
 		} else {
 			Err(BinaryError::InvalidOptionFlag)

@@ -1,12 +1,15 @@
 mod de;
 mod error;
-mod options;
 mod ser;
 
 pub use de::Deserializer;
 pub use error::*;
-pub use options::*;
 pub use ser::Serializer;
+
+pub const NONE_FLAG: u8 = 0x00;
+pub const SOME_FLAG: u8 = 0xFF;
+pub const STRUCT_FLAG: u8 = 0xFE;
+pub const STRUCT_VARIANT_FLAG: u8 = 0xFD;
 
 #[cfg(test)]
 mod tests {
