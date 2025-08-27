@@ -1,26 +1,43 @@
-use crate::{NONE_FLAG, SOME_FLAG, STRUCT_FLAG, STRUCT_VARIANT_FLAG};
+//! Serialize a Rust structure into binary data.
 
-use super::error::{BinaryError, Result};
+use crate::serde_binary_adv::common::flags::{self, STRUCT, STRUCT_VARIANT, UNIT_VARIANT};
+
+use super::BinaryError;
+use super::Result;
 use num::traits::ToBytes;
 use serde::{Serialize, ser};
 
-/// serializes a Rust struct into raw bytes according to the provided options
+/// A structure for serializing Rust values into binary.
 pub struct Serializer {
 	output: Vec<u8>,
+	big_endian: bool,
 }
 
 impl Serializer {
-	pub fn to_bytes<T>(value: &T) -> super::error::Result<Vec<u8>>
+	/// Converts a Rust value into a binary representation and returns a Vec<u8> of the bytes
+	pub fn to_bytes<T>(value: &T, big_endian: bool) -> Result<Vec<u8>>
 	where
 		T: Serialize,
 	{
-		let mut serializer = Serializer { output: Vec::new() };
+		let mut serializer = Self::new(big_endian);
 		value.serialize(&mut serializer)?;
 		Ok(serializer.output)
 	}
 
+	/// Creates a new binary Serializer
+	pub fn new(big_endian: bool) -> Self {
+		Self {
+			output: Vec::new(),
+			big_endian,
+		}
+	}
+
 	fn serialize_num<T: ToBytes>(self: &mut Self, v: T) -> Result<()> {
-		self.output.append(&mut v.to_le_bytes().as_mut().to_vec());
+		if self.big_endian {
+			self.output.append(&mut v.to_be_bytes().as_mut().to_vec());
+		} else {
+			self.output.append(&mut v.to_le_bytes().as_mut().to_vec());
+		}
 		Ok(())
 	}
 
@@ -45,7 +62,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 	type SerializeStructVariant = Self;
 
 	fn serialize_bool(self, v: bool) -> Result<Self::Ok> {
-		self.serialize_num(if v { 1 } else { 0 })
+		self.serialize_u8(if v { 1 } else { 0 })
 	}
 
 	fn serialize_u8(self, v: u8) -> Result<Self::Ok> {
@@ -105,14 +122,14 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 	}
 
 	fn serialize_none(self) -> Result<Self::Ok> {
-		self.serialize_num(NONE_FLAG)
+		self.serialize_u8(flags::NONE)
 	}
 
 	fn serialize_some<T>(self, value: &T) -> Result<Self::Ok>
 	where
 		T: ?Sized + ser::Serialize,
 	{
-		self.serialize_num(SOME_FLAG).unwrap();
+		self.serialize_u8(flags::SOME).unwrap();
 		value.serialize(self)
 	}
 
@@ -130,8 +147,8 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 		variant_index: u32,
 		_variant: &'static str,
 	) -> Result<Self::Ok> {
-		variant_index.serialize(&mut *self).unwrap();
-		Ok(())
+		self.serialize_u8(UNIT_VARIANT).unwrap();
+		variant_index.serialize(&mut *self)
 	}
 
 	fn serialize_newtype_struct<T>(self, _name: &'static str, value: &T) -> Result<Self::Ok>
@@ -161,13 +178,14 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 				self.serialize_num(n).unwrap();
 				Ok(self)
 			}
+			// Serializing sequences of unknown length to binary is difficult, since any value that
+			// can be used to mark the end of the sequence can also be a member
 			None => unimplemented!(),
 		}
 	}
 
 	fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple> {
-		len.serialize(&mut *self).unwrap();
-		Ok(self)
+		self.serialize_seq(Some(len))
 	}
 
 	fn serialize_tuple_struct(
@@ -175,8 +193,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 		_name: &'static str,
 		len: usize,
 	) -> Result<Self::SerializeTupleStruct> {
-		len.serialize(&mut *self).unwrap();
-		Ok(self)
+		self.serialize_seq(Some(len))
 	}
 
 	fn serialize_tuple_variant(
@@ -197,15 +214,16 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 				n.serialize(&mut *self).unwrap();
 				Ok(self)
 			}
+			// Serializing maps of unknown length to binary is difficult, since any value that
+			// can be used to mark the end of the sequence can also be a member
 			None => unimplemented!(),
 		}
 	}
 
 	fn serialize_struct(self, name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
-		self.output.push(STRUCT_FLAG);
+		self.output.push(STRUCT);
 		name.serialize(&mut *self).unwrap();
 		len.serialize(&mut *self).unwrap();
-
 		Ok(self)
 	}
 
@@ -216,9 +234,8 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 		_variant: &'static str,
 		len: usize,
 	) -> Result<Self::SerializeStructVariant> {
-		self.output.push(STRUCT_VARIANT_FLAG);
+		self.output.push(STRUCT_VARIANT);
 		name.serialize(&mut *self).unwrap();
-
 		variant_index.serialize(&mut *self).unwrap();
 		len.serialize(&mut *self).unwrap();
 		Ok(self)

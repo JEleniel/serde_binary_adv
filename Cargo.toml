@@ -11,7 +11,7 @@ exclude = { workspace = true }
 include = { workspace = true }
 
 [workspace]
-default-members = ["lowlevel-types"]
+default-members = ["./", "lowlevel-types"]
 
 [workspace.package]
 version = "1.0.0-alpha.1"

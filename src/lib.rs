@@ -1,16 +1,13 @@
 //! # Serde Binary Advanced
 //!
 //! Serde Binary Advanced is a [Serde](https://crates.io/crates/serde) library enabling the
-//! serialization and deserialization of Rust objects to raw binary representations.
+//! serialization and deserialization of Rust objects to and from binary representations.
 //!
 //! ## Features
 //!
 //! - Serialization and deserialization of Rust data structures to and from raw binary format
-//! - Full support for ASCII, UTF-8, UTI-16, and UTF-32 characters and strings
-//! - Support for enums as 8, 16, 32, or 64 bit integers
-//! - Support for bit flags
-//! - Comprehensive error reporting, including the nature and location of the error
-//! - Signature checking of the source binary data when deserializing
+//! - Full support for all Rust native types
+//! - Comprehensive error reporting
 //!
 //! ## Installation
 //!
@@ -19,7 +16,7 @@
 //! ```toml
 //! [dependencies]
 //! serde = { version = "1", features = ["derive"] }
-//! serde_yml = { version = "1" }
+//! serde_binary_adv = { version = "1" }
 //! ```
 //!
 //! ## Usage
@@ -31,18 +28,18 @@
 //!
 //! # [derive(Serialize, Deserialize)]
 //! struct Point {
-//!     x: f64,
-//!     y: f64,
+//!     x: i64,
+//!     y: i64,
 //! }
 //!
-//! fn main() -> Result<(), serde_yml::Error> {
+//! fn main() -> Result<(),Error> {
 //!     let point = Point { x: 1.0, y: 2.0 };
 //!
 //!     // Serialize to bytes
 //!     let raw: Vec<u8> = serde_binary_adv::to_bytes(&point)?;
-//!     assert_eq!(yaml, vec![0x3f,0x80,0x00,0x00]);
+//!     assert_eq!(raw, vec![0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02]);
 //!
-//!     // Deserialize from YAML
+//!     // Deserialize from bytes
 //!     let deserialized_point: Point = serde_yml::from_bytes(&raw)?;
 //!     assert_eq!(point, deserialized_point);
 //!
@@ -57,6 +54,6 @@
 //!
 //! Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in this crate by you
 //! shall be licensed as above, without any additional terms or conditions.
-mod serdebinaryadv;
+mod serde_binary_adv;
 
-pub use serdebinaryadv::*;
+pub use serde_binary_adv::*;
