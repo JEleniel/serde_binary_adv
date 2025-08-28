@@ -1,6 +1,9 @@
 //! Serialize a Rust structure into binary data.
 
-use crate::serde_binary_adv::common::flags::{self, STRUCT, STRUCT_VARIANT, UNIT_VARIANT};
+use crate::serde_binary_adv::common::{
+	compress_usize,
+	flags::{self, STRUCT, STRUCT_VARIANT, UNIT_VARIANT},
+};
 
 use super::BinaryError;
 use super::Result;
@@ -111,12 +114,12 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 	}
 
 	fn serialize_str(self, v: &str) -> Result<Self::Ok> {
-		self.serialize_num(v.bytes().len()).unwrap();
+		self.serialize_vec(compress_usize(v.bytes().len())).unwrap();
 		self.serialize_vec(v.as_bytes().to_vec())
 	}
 
 	fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok> {
-		self.serialize_num(v.len()).unwrap();
+		self.serialize_vec(compress_usize(v.len())).unwrap();
 		self.serialize_vec(v.to_vec()).unwrap();
 		Ok(())
 	}
@@ -175,7 +178,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 	fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
 		match len {
 			Some(n) => {
-				self.serialize_num(n).unwrap();
+				self.serialize_vec(compress_usize(n)).unwrap();
 				Ok(self)
 			}
 			// Serializing sequences of unknown length to binary is difficult, since any value that
@@ -204,14 +207,14 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 		len: usize,
 	) -> Result<Self::SerializeTupleVariant> {
 		variant_index.serialize(&mut *self).unwrap();
-		len.serialize(&mut *self).unwrap();
+		self.serialize_vec(compress_usize(len)).unwrap();
 		Ok(self)
 	}
 
 	fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap> {
 		match len {
 			Some(n) => {
-				n.serialize(&mut *self).unwrap();
+				self.serialize_vec(compress_usize(n)).unwrap();
 				Ok(self)
 			}
 			// Serializing maps of unknown length to binary is difficult, since any value that
@@ -223,7 +226,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 	fn serialize_struct(self, name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
 		self.output.push(STRUCT);
 		name.serialize(&mut *self).unwrap();
-		len.serialize(&mut *self).unwrap();
+		self.serialize_vec(compress_usize(len)).unwrap();
 		Ok(self)
 	}
 
@@ -237,7 +240,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 		self.output.push(STRUCT_VARIANT);
 		name.serialize(&mut *self).unwrap();
 		variant_index.serialize(&mut *self).unwrap();
-		len.serialize(&mut *self).unwrap();
+		self.serialize_vec(compress_usize(len)).unwrap();
 		Ok(self)
 	}
 }

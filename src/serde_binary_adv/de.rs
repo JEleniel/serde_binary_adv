@@ -1,4 +1,7 @@
-use crate::serde_binary_adv::common::flags::{NONE, SOME, STRUCT, UNIT_VARIANT};
+use crate::serde_binary_adv::common::{
+	decompress_usize,
+	flags::{NONE, SOME, STRUCT, UNIT_VARIANT},
+};
 
 use super::BinaryError;
 use super::Result;
@@ -96,7 +99,19 @@ impl<'de> Deserializer<'de> {
 
 	impl_next_uxx!(next_u32, u32);
 
-	impl_next_uxx!(next_usize, usize);
+	fn next_usize(&mut self) -> Result<usize> {
+		let mut bytes: Vec<u8> = vec![self.next().unwrap()];
+		if (bytes[0] & 0b10000000) != 0 {
+			bytes.push(self.next().unwrap());
+			let extra_bytes = (bytes[1] & 0b11100000) >> 5;
+			if extra_bytes > 0 {
+				for _ in 0..extra_bytes {
+					bytes.push(self.next().unwrap());
+				}
+			}
+		}
+		Ok(decompress_usize(&bytes).unwrap())
+	}
 
 	fn take_string(&mut self) -> String {
 		let size = self.next_usize().unwrap();
