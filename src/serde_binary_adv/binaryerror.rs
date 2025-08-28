@@ -4,7 +4,7 @@ use std::{self, string::FromUtf8Error};
 use serde::{de, ser};
 
 /// the errors that can be thrown
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum BinaryError {
 	/// A message only error
 	Message { message: String },

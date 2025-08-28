@@ -165,6 +165,18 @@ mod tests {
 		);
 	}
 
+	#[test]
+	fn test_bytes() {
+		let value: &[u8] = &[0x41 as u8];
+		let serialized = Serializer::to_bytes(&[0x41 as u8], true).unwrap();
+		let deserialized: &[u8] = Deserializer::from_bytes::<&[u8]>(&serialized, true).unwrap();
+		assert_eq!(
+			value, deserialized,
+			"{:?} serialized to {:?} and deserialized to {:?}",
+			value, serialized, deserialized
+		);
+	}
+
 	fn test_be<'a, T>(value: T)
 	where
 		T: Serialize + Deserialize<'a> + std::fmt::Debug + PartialEq,

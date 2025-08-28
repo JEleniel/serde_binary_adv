@@ -5,11 +5,11 @@ use crate::serde_binary_adv::common::{
 
 use super::BinaryError;
 use super::Result;
+use serde::de::SeqAccess;
 use serde::de::{
-	self, DeserializeSeed, EnumAccess, IntoDeserializer, MapAccess, VariantAccess, Visitor,
+	self, DeserializeOwned, DeserializeSeed, EnumAccess, IntoDeserializer, MapAccess,
+	VariantAccess, Visitor,
 };
-use serde::{Deserialize, de::SeqAccess};
-use std::marker::PhantomData;
 
 macro_rules! impl_deserialize_num {
 	($name:ident, $ty:ty, $visit:ident) => {
@@ -17,12 +17,7 @@ macro_rules! impl_deserialize_num {
 		where
 			V: Visitor<'de>,
 		{
-			let bytes: Vec<u8> = match self.take(size_of::<$ty>()) {
-				Ok(v) => v,
-				Err(e) => {
-					return Err(e);
-				}
-			};
+			let bytes: &[u8] = self.take(size_of::<$ty>())?;
 
 			let value: $ty = if self.big_endian {
 				<$ty>::from_be_bytes(match bytes.try_into() {
@@ -52,101 +47,80 @@ macro_rules! impl_deserialize_num {
 macro_rules! impl_next_uxx {
 	($name:ident, $ty:ty) => {
 		fn $name(&mut self) -> Result<$ty> {
-			let bytes = match self.take(size_of::<$ty>()) {
-				Ok(v) => v,
-				Err(e) => {
-					return Err(BinaryError::Message {
-						message: format!("{:?}", e),
-					});
-				}
-			};
+			let bytes: [u8; size_of::<$ty>()] = self.take(size_of::<$ty>())?.try_into().unwrap();
 			Ok(if self.big_endian {
-				<$ty>::from_be_bytes(match bytes.try_into() {
-					Ok(v) => v,
-					Err(e) => {
-						return Err(BinaryError::Message {
-							message: format!("{:?}", e),
-						});
-					}
-				})
+				<$ty>::from_be_bytes(bytes)
 			} else {
-				<$ty>::from_le_bytes(match bytes.try_into() {
-					Ok(v) => v,
-					Err(e) => {
-						return Err(BinaryError::Message {
-							message: format!("{:?}", e),
-						});
-					}
-				})
+				<$ty>::from_le_bytes(bytes)
 			})
 		}
 	};
 }
 
 pub struct Deserializer<'de> {
-	data: Vec<u8>,
+	data: &'de mut [u8],
 	big_endian: bool,
-	_flag: PhantomData<&'de bool>,
 }
 
 impl<'de> Deserializer<'de> {
 	/// Deserializes a vector of bytes (Vec<u8>) into Rust structures.
-	pub fn from_bytes<'a, T>(data: &Vec<u8>, big_endian: bool) -> Result<T>
+	pub fn from_bytes<T>(data: &'de [u8], big_endian: bool) -> Result<T>
 	where
-		T: Deserialize<'a>,
+		T: DeserializeOwned,
 	{
-		let mut deserializer = Deserializer::new(data, big_endian);
+		let mut deserializer: &'de Deserializer<'de> = &Deserializer::new(data, big_endian);
 
 		let t = T::deserialize(&mut deserializer)?;
 		Ok(t)
 	}
 
 	/// Creates a binary deserializer
-	pub fn new(input: &Vec<u8>, big_endian: bool) -> Deserializer<'de> {
+	pub fn new(input: &'de mut [u8], big_endian: bool) -> Deserializer<'de> {
 		Deserializer {
-			data: input.clone(),
+			data: input,
 			big_endian,
-			_flag: PhantomData,
 		}
 	}
 
-	fn peek(&mut self) -> Result<u8> {
+	fn peek(&self) -> Result<u8> {
 		if self.data.len() == 0 {
-			Err(BinaryError::UnexpectedEndOfInput)
-		} else {
-			Ok(self.data[0])
+			return Err(BinaryError::UnexpectedEndOfInput);
 		}
+		Ok(self.data[0])
 	}
 
-	fn next(&mut self) -> Result<u8> {
+	fn next(self) -> Result<u8> {
 		if self.data.len() == 0 {
-			Err(BinaryError::UnexpectedEndOfInput)
-		} else {
-			Ok(self.data.remove(0))
+			return Err(BinaryError::UnexpectedEndOfInput);
 		}
+		let byte = self.data[0];
+		self.data. = self.data[1..];
+		Ok(byte)
 	}
 
-	fn take(&mut self, len: usize) -> Result<Vec<u8>> {
-		if self.data.len() < len {
-			Err(BinaryError::UnexpectedEndOfInput)
-		} else {
-			let working = self.data.clone();
-			let (res, rem) = working.split_at(len);
-			self.data = rem.to_vec();
-			Ok(res.to_vec())
+	fn take(&mut self, len: usize) -> Result<&'de [u8]> {
+		if len > self.data.len() {
+			return Err(BinaryError::UnexpectedEndOfInput);
 		}
+		let res: &'de [u8];
+		let rem: &'de [u8];
+		(res, rem) = self.data.split_at(len);
+		self.data = rem;
+		Ok(res)
 	}
 
 	impl_next_uxx!(next_u32, u32);
 
 	fn next_usize(&mut self) -> Result<usize> {
-		let mut bytes: Vec<u8> = vec![self.next()?];
+		let mut bytes: [u8; 8] = [0x00 as u8; 8];
+		bytes[0] = self.next()?;
 		if (bytes[0] & 0b10000000) != 0 {
-			bytes.push(self.next()?);
+			bytes[1] = self.next()?;
+
 			let extra_bytes = (bytes[1] & 0b11100000) >> 5;
 			if extra_bytes > 0 {
-				for _ in 0..extra_bytes {
-					bytes.push(self.next()?);
+				for i in 0..extra_bytes as usize {
+					bytes[i + 2] = self.next()?;
 				}
 			}
 		}
@@ -155,7 +129,7 @@ impl<'de> Deserializer<'de> {
 
 	fn take_string(&mut self) -> Result<String> {
 		let size = self.next_usize()?;
-		match String::from_utf8(self.take(size)?) {
+		match String::from_utf8(self.take(size)?.to_vec()) {
 			Ok(v) => Ok(v),
 			Err(e) => Err(BinaryError::Message {
 				message: format!("{:?}", e),
@@ -187,13 +161,6 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 		visitor.visit_bool(self.next()? != 0x00)
 	}
 
-	fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value>
-	where
-		V: Visitor<'de>,
-	{
-		visitor.visit_i8(self.next()? as i8)
-	}
-
 	fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
@@ -201,11 +168,18 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 		visitor.visit_u8(self.next()?)
 	}
 
+	fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value>
+	where
+		V: Visitor<'de>,
+	{
+		visitor.visit_i8(self.next()? as i8)
+	}
+
 	fn deserialize_char<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		let bytes: Vec<u8>;
+		let bytes: &[u8];
 		match self.peek()? {
 			0x00..=0x7F => {
 				bytes = self.take(1)?;
@@ -219,7 +193,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 			0xF0..=0xFF => bytes = self.take(4)?,
 			_ => return Err(BinaryError::InvalidBytes),
 		}
-		let s = match String::from_utf8(bytes) {
+		let s = match String::from_utf8(bytes.to_vec()) {
 			Ok(v) => v,
 			Err(e) => {
 				return Err(BinaryError::from(e));
@@ -257,8 +231,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 		V: Visitor<'de>,
 	{
 		let len = self.next_usize()?;
-		let bytes = self.take(len)?;
-		visitor.visit_bytes(&bytes.as_slice())
+		visitor.visit_borrowed_bytes(&self.take(len)?)
 	}
 
 	fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
