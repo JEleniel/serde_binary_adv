@@ -4,7 +4,7 @@ pub mod flags {
 	pub const NONE: u8 = 0x00;
 	pub const SOME: u8 = 0xFF;
 	pub const UNIT_VARIANT: u8 = 0xFE;
-	pub const STRUCT: u8 = 0xFD;
+	pub const NONUNIT_VARIANT: u8 = 0xFD;
 	pub const STRUCT_VARIANT: u8 = 0xFC;
 }
 
@@ -13,7 +13,7 @@ pub type Result<T> = std::result::Result<T, super::BinaryError>;
 
 use std::mem::size_of;
 
-/// Encodes an integer using the hybrid 3-bit length prefix scheme.
+/// Encodes an integer using a hybrid continuation bit and 3-bit length prefix scheme.
 /// T must be an unsigned integer type (u8, u16, u32, u64).
 pub fn compress_usize(value: usize) -> Vec<u8> {
 	if value <= 0b01111111 {
@@ -38,7 +38,7 @@ pub fn compress_usize(value: usize) -> Vec<u8> {
 	res
 }
 
-/// Decodes an integer from the hybrid 3-bit length prefix encoding
+/// Decodes an integer from the hybrid continuation bit and 3-bit length prefix encoding
 pub fn decompress_usize(bytes: &[u8]) -> Result<usize> {
 	if bytes.is_empty() {
 		return Err(BinaryError::InvalidLength {
@@ -87,7 +87,7 @@ pub fn decompress_usize(bytes: &[u8]) -> Result<usize> {
 mod tests {
 	use crate::serde_binary_adv::common::{
 		compress_usize, decompress_usize,
-		flags::{NONE, SOME, STRUCT, STRUCT_VARIANT, UNIT_VARIANT},
+		flags::{NONE, NONUNIT_VARIANT, SOME, STRUCT_VARIANT, UNIT_VARIANT},
 	};
 
 	#[test]
@@ -95,7 +95,7 @@ mod tests {
 		assert_eq!(NONE, 0x00);
 		assert_eq!(SOME, 0xFF);
 		assert_eq!(UNIT_VARIANT, 0xFE);
-		assert_eq!(STRUCT, 0xFD);
+		assert_eq!(NONUNIT_VARIANT, 0xFD);
 		assert_eq!(STRUCT_VARIANT, 0xFC);
 	}
 
@@ -153,6 +153,17 @@ mod tests {
 		for t in tests {
 			test_usize(t);
 		}
+	}
+
+	#[test]
+	fn test_decompress_empty() {
+		assert!(decompress_usize(&[]).is_err());
+	}
+
+	#[test]
+	fn test_decompress_too_small() {
+		assert!(decompress_usize(&[0x80]).is_err());
+		assert!(decompress_usize(&[0xFF, 0xFF]).is_err());
 	}
 
 	fn test_usize(value: usize) {

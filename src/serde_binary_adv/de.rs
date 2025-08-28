@@ -1,6 +1,6 @@
 use crate::serde_binary_adv::common::{
 	decompress_usize,
-	flags::{NONE, SOME, STRUCT, UNIT_VARIANT},
+	flags::{NONE, NONUNIT_VARIANT, SOME, STRUCT_VARIANT, UNIT_VARIANT},
 };
 
 use super::BinaryError;
@@ -17,12 +17,31 @@ macro_rules! impl_deserialize_num {
 		where
 			V: Visitor<'de>,
 		{
-			let bytes: Vec<u8> = self.take(size_of::<$ty>()).unwrap();
+			let bytes: Vec<u8> = match self.take(size_of::<$ty>()) {
+				Ok(v) => v,
+				Err(e) => {
+					return Err(e);
+				}
+			};
 
 			let value: $ty = if self.big_endian {
-				<$ty>::from_be_bytes(bytes.try_into().unwrap())
+				<$ty>::from_be_bytes(match bytes.try_into() {
+					Ok(v) => v,
+					Err(e) => {
+						return Err(BinaryError::Message {
+							message: format!("{:?}", e),
+						});
+					}
+				})
 			} else {
-				<$ty>::from_le_bytes(bytes.try_into().unwrap())
+				<$ty>::from_le_bytes(match bytes.try_into() {
+					Ok(v) => v,
+					Err(e) => {
+						return Err(BinaryError::Message {
+							message: format!("{:?}", e),
+						});
+					}
+				})
 			};
 
 			visitor.$visit(value)
@@ -33,11 +52,32 @@ macro_rules! impl_deserialize_num {
 macro_rules! impl_next_uxx {
 	($name:ident, $ty:ty) => {
 		fn $name(&mut self) -> Result<$ty> {
-			let bytes = self.take(size_of::<$ty>()).unwrap();
+			let bytes = match self.take(size_of::<$ty>()) {
+				Ok(v) => v,
+				Err(e) => {
+					return Err(BinaryError::Message {
+						message: format!("{:?}", e),
+					});
+				}
+			};
 			Ok(if self.big_endian {
-				<$ty>::from_be_bytes(bytes.try_into().unwrap())
+				<$ty>::from_be_bytes(match bytes.try_into() {
+					Ok(v) => v,
+					Err(e) => {
+						return Err(BinaryError::Message {
+							message: format!("{:?}", e),
+						});
+					}
+				})
 			} else {
-				<$ty>::from_le_bytes(bytes.try_into().unwrap())
+				<$ty>::from_le_bytes(match bytes.try_into() {
+					Ok(v) => v,
+					Err(e) => {
+						return Err(BinaryError::Message {
+							message: format!("{:?}", e),
+						});
+					}
+				})
 			})
 		}
 	};
@@ -100,22 +140,27 @@ impl<'de> Deserializer<'de> {
 	impl_next_uxx!(next_u32, u32);
 
 	fn next_usize(&mut self) -> Result<usize> {
-		let mut bytes: Vec<u8> = vec![self.next().unwrap()];
+		let mut bytes: Vec<u8> = vec![self.next()?];
 		if (bytes[0] & 0b10000000) != 0 {
-			bytes.push(self.next().unwrap());
+			bytes.push(self.next()?);
 			let extra_bytes = (bytes[1] & 0b11100000) >> 5;
 			if extra_bytes > 0 {
 				for _ in 0..extra_bytes {
-					bytes.push(self.next().unwrap());
+					bytes.push(self.next()?);
 				}
 			}
 		}
-		Ok(decompress_usize(&bytes).unwrap())
+		Ok(decompress_usize(&bytes)?)
 	}
 
-	fn take_string(&mut self) -> String {
-		let size = self.next_usize().unwrap();
-		String::from_utf8(self.take(size).unwrap()).unwrap()
+	fn take_string(&mut self) -> Result<String> {
+		let size = self.next_usize()?;
+		match String::from_utf8(self.take(size)?) {
+			Ok(v) => Ok(v),
+			Err(e) => Err(BinaryError::Message {
+				message: format!("{:?}", e),
+			}),
+		}
 	}
 }
 
@@ -125,9 +170,13 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	impl_deserialize_num!(deserialize_u16, u16, visit_u16);
 	impl_deserialize_num!(deserialize_u32, u32, visit_u32);
 	impl_deserialize_num!(deserialize_u64, u64, visit_u64);
+	impl_deserialize_num!(deserialize_u128, u128, visit_u128);
+
 	impl_deserialize_num!(deserialize_i16, i16, visit_i16);
 	impl_deserialize_num!(deserialize_i32, i32, visit_i32);
 	impl_deserialize_num!(deserialize_i64, i64, visit_i64);
+	impl_deserialize_num!(deserialize_i128, i128, visit_i128);
+
 	impl_deserialize_num!(deserialize_f32, f32, visit_f32);
 	impl_deserialize_num!(deserialize_f64, f64, visit_f64);
 
@@ -135,80 +184,80 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	where
 		V: Visitor<'de>,
 	{
-		visitor.visit_bool(self.next().unwrap() != 0x00)
+		visitor.visit_bool(self.next()? != 0x00)
 	}
 
 	fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		visitor.visit_i8(self.next().unwrap() as i8)
+		visitor.visit_i8(self.next()? as i8)
 	}
 
 	fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		visitor.visit_u8(self.next().unwrap())
+		visitor.visit_u8(self.next()?)
 	}
 
 	fn deserialize_char<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		match self.peek().unwrap() {
-			0x00..=0x7F => visitor.visit_char(
-				String::from_utf8(self.take(1).unwrap())
-					.unwrap()
-					.chars()
-					.next()
-					.unwrap(),
-			),
-			0xC0..=0xDF => visitor.visit_char(
-				String::from_utf8(self.take(2).unwrap())
-					.unwrap()
-					.chars()
-					.next()
-					.unwrap(),
-			),
-			0xE0..=0xEF => visitor.visit_char(
-				String::from_utf8(self.take(3).unwrap())
-					.unwrap()
-					.chars()
-					.next()
-					.unwrap(),
-			),
-			0xF0..=0xFF => visitor.visit_char(
-				String::from_utf8(self.take(4).unwrap())
-					.unwrap()
-					.chars()
-					.next()
-					.unwrap(),
-			),
-			_ => Err(BinaryError::InvalidBytes),
+		let bytes: Vec<u8>;
+		match self.peek()? {
+			0x00..=0x7F => {
+				bytes = self.take(1)?;
+			}
+			0xC0..=0xDF => {
+				bytes = self.take(2)?;
+			}
+			0xE0..=0xEF => {
+				bytes = self.take(3)?;
+			}
+			0xF0..=0xFF => bytes = self.take(4)?,
+			_ => return Err(BinaryError::InvalidBytes),
 		}
+		let s = match String::from_utf8(bytes) {
+			Ok(v) => v,
+			Err(e) => {
+				return Err(BinaryError::from(e));
+			}
+		};
+		let ch = match s.chars().next() {
+			Some(c) => c,
+			None => {
+				// Because of the prior checks, this should never return None
+				return Err(BinaryError::Message {
+					message: String::from("failed to decode character"),
+				});
+			}
+		};
+		visitor.visit_char(ch)
 	}
 
 	fn deserialize_str<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		visitor.visit_str(&self.take_string().as_str())
+		let s = self.take_string()?;
+		visitor.visit_str(&s.as_str())
 	}
 
 	fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		visitor.visit_string(self.take_string())
+		self.deserialize_str(visitor)
 	}
 
 	fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		let len = self.next_usize().unwrap();
-		let bytes = self.take(len).unwrap();
+		let len = self.next_usize()?;
+		let bytes = self.take(len)?;
 		visitor.visit_bytes(&bytes.as_slice())
 	}
 
@@ -223,7 +272,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	where
 		V: Visitor<'de>,
 	{
-		let flag: u8 = self.next().unwrap();
+		let flag: u8 = self.next()?;
 		if flag == NONE {
 			visitor.visit_none()
 		} else if flag == SOME {
@@ -262,7 +311,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	where
 		V: Visitor<'de>,
 	{
-		let len: usize = self.next_usize().unwrap();
+		let len: usize = self.next_usize()?;
 		visitor.visit_seq(BinarySeries::new(&mut *self, len))
 	}
 
@@ -289,37 +338,20 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	where
 		V: Visitor<'de>,
 	{
-		let len: usize = self.next_usize().unwrap();
+		let len: usize = self.next_usize()?;
 		visitor.visit_map(BinarySeries::new(self, len))
 	}
 
 	fn deserialize_struct<V>(
 		self,
-		name: &'static str,
+		_name: &'static str,
 		_fields: &'static [&'static str],
 		visitor: V,
 	) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		let struct_flag = self.next().unwrap();
-		if struct_flag != STRUCT {
-			return Err(BinaryError::MissingOrInvalidFlag {
-				actual: struct_flag,
-				expected: STRUCT,
-			});
-		}
-
-		let dname = self.take_string();
-		if dname != name {
-			return Err(BinaryError::InvalidName {
-				actual: dname,
-				expected: String::from(name),
-			});
-		}
-
-		let len = self.next_usize().unwrap();
-
+		let len = self.next_usize()?;
 		visitor.visit_seq(BinarySeries::new(&mut *self, len))
 	}
 
@@ -332,12 +364,21 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	where
 		V: Visitor<'de>,
 	{
-		if self.next().unwrap() == UNIT_VARIANT {
-			let variant_index: u32 = self.next_u32().unwrap();
-			let variant: &str = variants[variant_index as usize];
-			visitor.visit_enum(variant.into_deserializer())
-		} else {
-			visitor.visit_enum(Enum::new(self))
+		let variant_type = self.next()?;
+
+		match variant_type {
+			NONUNIT_VARIANT => visitor.visit_enum(Enum::new(self)),
+			STRUCT_VARIANT => visitor.visit_enum(Enum::new(self)),
+			UNIT_VARIANT => {
+				let variant_index: u32 = self.next_u32()?;
+				let variant: &'de str = variants[variant_index as usize];
+
+				visitor.visit_enum(variant.into_deserializer())
+			}
+			_ => Err(BinaryError::MissingOrInvalidFlag {
+				actual: variant_type,
+				expected: 0xFE,
+			}),
 		}
 	}
 
@@ -345,7 +386,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	where
 		V: Visitor<'de>,
 	{
-		visitor.visit_string(self.take_string())
+		visitor.visit_u32(self.next_u32()?)
 	}
 
 	fn deserialize_ignored_any<V>(self, _visitor: V) -> Result<V::Value>
@@ -447,7 +488,7 @@ impl<'de, 'a> EnumAccess<'de> for Enum<'a, 'de> {
 	where
 		V: DeserializeSeed<'de>,
 	{
-		Ok((seed.deserialize(&mut *self.de).unwrap(), self))
+		Ok((seed.deserialize(&mut *self.de)?, self))
 	}
 }
 
@@ -476,6 +517,6 @@ impl<'de, 'a> VariantAccess<'de> for Enum<'a, 'de> {
 	where
 		V: Visitor<'de>,
 	{
-		de::Deserializer::deserialize_map(self.de, visitor)
+		de::Deserializer::deserialize_seq(self.de, visitor)
 	}
 }

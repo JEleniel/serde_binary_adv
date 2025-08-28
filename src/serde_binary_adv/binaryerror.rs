@@ -1,5 +1,5 @@
-use std;
 use std::fmt::{self, Display};
+use std::{self, string::FromUtf8Error};
 
 use serde::{de, ser};
 
@@ -66,6 +66,14 @@ impl Display for BinaryError {
 }
 
 impl std::error::Error for BinaryError {}
+
+impl From<FromUtf8Error> for BinaryError {
+	fn from(e: FromUtf8Error) -> Self {
+		BinaryError::Message {
+			message: format!("{:?}", e),
+		}
+	}
+}
 
 #[cfg(test)]
 mod tests {

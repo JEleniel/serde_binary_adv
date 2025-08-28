@@ -2,7 +2,7 @@
 
 use crate::serde_binary_adv::common::{
 	compress_usize,
-	flags::{self, STRUCT, STRUCT_VARIANT, UNIT_VARIANT},
+	flags::{self, NONUNIT_VARIANT, STRUCT_VARIANT, UNIT_VARIANT},
 };
 
 use super::BinaryError;
@@ -14,6 +14,7 @@ use serde::{Serialize, ser};
 pub struct Serializer {
 	output: Vec<u8>,
 	big_endian: bool,
+	unsized_seq: bool,
 }
 
 impl Serializer {
@@ -32,6 +33,7 @@ impl Serializer {
 		Self {
 			output: Vec::new(),
 			big_endian,
+			unsized_seq: false,
 		}
 	}
 
@@ -49,6 +51,10 @@ impl Serializer {
 			self.serialize_num(item).unwrap()
 		}
 		Ok(())
+	}
+
+	fn serialize_usize(&mut self, v: usize) -> Result<()> {
+		self.serialize_vec(compress_usize(v))
 	}
 }
 
@@ -84,6 +90,10 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 		self.serialize_num(v)
 	}
 
+	fn serialize_u128(self, v: u128) -> Result<Self::Ok> {
+		self.serialize_num(v)
+	}
+
 	fn serialize_i8(self, v: i8) -> Result<Self::Ok> {
 		self.serialize_num(v)
 	}
@@ -97,6 +107,10 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 	}
 
 	fn serialize_i64(self, v: i64) -> Result<Self::Ok> {
+		self.serialize_num(v)
+	}
+
+	fn serialize_i128(self, v: i128) -> Result<Self::Ok> {
 		self.serialize_num(v)
 	}
 
@@ -114,14 +128,13 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 	}
 
 	fn serialize_str(self, v: &str) -> Result<Self::Ok> {
-		self.serialize_vec(compress_usize(v.bytes().len())).unwrap();
+		self.serialize_usize(v.bytes().len()).unwrap();
 		self.serialize_vec(v.as_bytes().to_vec())
 	}
 
 	fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok> {
-		self.serialize_vec(compress_usize(v.len())).unwrap();
-		self.serialize_vec(v.to_vec()).unwrap();
-		Ok(())
+		self.serialize_usize(v.len()).unwrap();
+		self.serialize_vec(v.to_vec())
 	}
 
 	fn serialize_none(self) -> Result<Self::Ok> {
@@ -150,7 +163,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 		variant_index: u32,
 		_variant: &'static str,
 	) -> Result<Self::Ok> {
-		self.serialize_u8(UNIT_VARIANT).unwrap();
+		UNIT_VARIANT.serialize(&mut *self).unwrap();
 		variant_index.serialize(&mut *self)
 	}
 
@@ -171,6 +184,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 	where
 		T: ?Sized + ser::Serialize,
 	{
+		NONUNIT_VARIANT.serialize(&mut *self).unwrap();
 		variant_index.serialize(&mut *self).unwrap();
 		value.serialize(self)
 	}
@@ -178,13 +192,12 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 	fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
 		match len {
 			Some(n) => {
-				self.serialize_vec(compress_usize(n)).unwrap();
-				Ok(self)
+				self.serialize_usize(n).unwrap();
+				self.unsized_seq = false;
 			}
-			// Serializing sequences of unknown length to binary is difficult, since any value that
-			// can be used to mark the end of the sequence can also be a member
 			None => unimplemented!(),
 		}
+		Ok(self)
 	}
 
 	fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple> {
@@ -206,8 +219,9 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 		_variant: &'static str,
 		len: usize,
 	) -> Result<Self::SerializeTupleVariant> {
+		NONUNIT_VARIANT.serialize(&mut *self).unwrap();
 		variant_index.serialize(&mut *self).unwrap();
-		self.serialize_vec(compress_usize(len)).unwrap();
+		self.serialize_usize(len).unwrap();
 		Ok(self)
 	}
 
@@ -223,24 +237,21 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 		}
 	}
 
-	fn serialize_struct(self, name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
-		self.output.push(STRUCT);
-		name.serialize(&mut *self).unwrap();
-		self.serialize_vec(compress_usize(len)).unwrap();
+	fn serialize_struct(self, _name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
+		self.serialize_usize(len).unwrap();
 		Ok(self)
 	}
 
 	fn serialize_struct_variant(
 		self,
-		name: &'static str,
+		_name: &'static str,
 		variant_index: u32,
 		_variant: &'static str,
 		len: usize,
 	) -> Result<Self::SerializeStructVariant> {
-		self.output.push(STRUCT_VARIANT);
-		name.serialize(&mut *self).unwrap();
+		STRUCT_VARIANT.serialize(&mut *self).unwrap();
 		variant_index.serialize(&mut *self).unwrap();
-		self.serialize_vec(compress_usize(len)).unwrap();
+		self.serialize_usize(len).unwrap();
 		Ok(self)
 	}
 }

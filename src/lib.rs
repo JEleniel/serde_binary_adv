@@ -57,3 +57,6 @@
 mod serde_binary_adv;
 
 pub use serde_binary_adv::*;
+
+#[cfg(test)]
+mod tests {}
