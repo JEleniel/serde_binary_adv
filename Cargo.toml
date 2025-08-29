@@ -28,7 +28,7 @@ keywords = ["binary", "deserialization", "serde", "serialization"]
 categories = ["encoding", "parser-implementations"]
 
 [workspace.dependencies]
-lowlevel-types = { path = "lowlevel-types" }
+lowlevel-types = { version = "1.0.0-beta.1", path = "lowlevel-types" }
 serde = { version = "1", features = ["derive"] }
 
 [workspace.lints.rust]
