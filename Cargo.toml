@@ -7,7 +7,6 @@ repository = { workspace = true }
 license = { workspace = true }
 keywords = { workspace = true }
 categories = { workspace = true }
-exclude = { workspace = true }
 include = { workspace = true }
 
 [workspace]
@@ -20,13 +19,6 @@ repository = "https://github.com/JEleniel/serde_binary_adv"
 license = "MIT OR Apache-2.0"
 keywords = ["binary", "deserialization", "serde", "serialization"]
 categories = ["encoding", "parser-implementations"]
-exclude = [
-  "**/.analyze/*",
-  "/.git/*",
-  "/.github/*",
-  "/.gitignore",
-  "/.vscode/*",
-]
 include = [
   "/LICENSE-Apache.md",
   "/LICENSE-MIT.md",
