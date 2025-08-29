@@ -1,5 +1,5 @@
 [package]
-name = "serde_binary_adv"
+name = "serde-binary-adv"
 version = { workspace = true }
 edition = { workspace = true }
 description = "A library for Serde to enable the serialization and deserialization of Rust structures to and from raw binary"

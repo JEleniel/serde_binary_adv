@@ -1,6 +1,5 @@
 [toolchain]
 channel = "stable"
-components = ["rustfmt", "cargo", "rustc-docs", "rustc"]
 targets = [
   "aarch64-apple-darwin",
   "aarch64-apple-ios",
