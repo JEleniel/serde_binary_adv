@@ -26,3 +26,4 @@ serde = ["dep:serde", "dep:serde_test"]
 
 [lints]
 workspace = true
+
