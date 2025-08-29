@@ -1,0 +1,16 @@
+{
+	"[markdown]": {
+		"editor.defaultFormatter": "DavidAnson.vscode-markdownlint"
+	},
+	"[rust]": {
+		"editor.defaultFormatter": "rust-lang.rust-analyzer"
+	},
+	"[toml]": {
+		"editor.defaultFormatter": "tombi-toml.tombi"
+	},
+	"files.exclude": {
+		"**/.analyze": true,
+		"**/.cache": true
+	},
+	"rust-analyzer.cargo.targetDir": "./.analyze"
+}

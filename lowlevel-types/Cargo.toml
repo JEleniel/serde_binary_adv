@@ -1,0 +1,29 @@
+[package]
+name = "lowlevel-types"
+version = { workspace = true }
+edition = { workspace = true }
+description = "Rust types for working with low level data structures, such as ASCII characters and strings"
+repository = { workspace = true }
+license = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+include = [
+  "LICENSE-Apache.md",
+  "LICENSE-MIT.md",
+  "README.md",
+  "build.rs",
+  "examples/**",
+  "src/**",
+]
+
+[dependencies]
+serde = { workspace = true, optional = true }
+serde_test = { version = "1.0.177", optional = true }
+
+[features]
+default = ["serde"]
+serde = ["dep:serde", "dep:serde_test"]
+
+[lints]
+workspace = true
+

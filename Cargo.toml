@@ -1,0 +1,44 @@
+[package]
+name = "serde_binary_adv"
+version = { workspace = true }
+edition = { workspace = true }
+description = "A library for Serde to enable the serialization and deserialization of Rust structures to and from raw binary"
+repository = { workspace = true }
+license = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+include = [
+  "/LICENSE-Apache.md",
+  "/LICENSE-MIT.md",
+  "/README.md",
+  "/build.rs",
+  "/examples/**",
+  "/src/**",
+]
+
+[workspace]
+default-members = ["./", "lowlevel-types"]
+
+[workspace.package]
+version = "1.0.0-beta.1"
+edition = "2024"
+repository = "https://github.com/JEleniel/serde_binary_adv"
+license = "MIT OR Apache-2.0"
+keywords = ["binary", "deserialization", "serde", "serialization"]
+categories = ["encoding", "parser-implementations"]
+
+[workspace.dependencies]
+lowlevel-types = { path = "lowlevel-types" }
+serde = { version = "1", features = ["derive"] }
+
+[workspace.lints.rust]
+missing_docs = "warn"
+unsafe_code = "forbid"
+
+[dependencies]
+lowlevel-types = { workspace = true }
+num = "0.4.3"
+serde = { workspace = true }
+
+[lints]
+workspace = true
