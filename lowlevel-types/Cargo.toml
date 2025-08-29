@@ -7,7 +7,14 @@ repository = { workspace = true }
 license = { workspace = true }
 keywords = { workspace = true }
 categories = { workspace = true }
-include = { workspace = true }
+include = [
+  "LICENSE-Apache.md",
+  "LICENSE-MIT.md",
+  "README.md",
+  "build.rs",
+  "examples/**",
+  "src/**",
+]
 
 [dependencies]
 serde = { workspace = true, optional = true }

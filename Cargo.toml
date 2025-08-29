@@ -7,7 +7,14 @@ repository = { workspace = true }
 license = { workspace = true }
 keywords = { workspace = true }
 categories = { workspace = true }
-include = { workspace = true }
+include = [
+  "/LICENSE-Apache.md",
+  "/LICENSE-MIT.md",
+  "/README.md",
+  "/build.rs",
+  "/examples/**",
+  "/src/**",
+]
 
 [workspace]
 default-members = ["./", "lowlevel-types"]
@@ -19,13 +26,6 @@ repository = "https://github.com/JEleniel/serde_binary_adv"
 license = "MIT OR Apache-2.0"
 keywords = ["binary", "deserialization", "serde", "serialization"]
 categories = ["encoding", "parser-implementations"]
-include = [
-  "/LICENSE-Apache.md",
-  "/LICENSE-MIT.md",
-  "/README.md",
-  "/build.rs",
-  "/examples/**",
-]
 
 [workspace.dependencies]
 lowlevel-types = { path = "lowlevel-types" }
