@@ -3,22 +3,40 @@ use std::{self, string::FromUtf8Error};
 
 use serde::{de, ser};
 
-/// the errors that can be thrown
+/// Errors that can be thrown by the Serializer or Deserializer
 #[derive(Debug, Clone, PartialEq)]
 pub enum BinaryError {
 	/// A message only error
-	Message { message: String },
+	Message {
+		/// The test of the message
+		message: String,
+	},
 
 	/// unexpected end of input
 	UnexpectedEndOfInput,
 	/// an invalid set of bytes for the type expected
 	InvalidBytes,
 	/// missing or invalid flag
-	MissingOrInvalidFlag { actual: u8, expected: u8 },
+	MissingOrInvalidFlag {
+		/// The actual value
+		actual: u8,
+		/// The expected value
+		expected: u8,
+	},
 	/// inavlid length
-	InvalidLength { actual: usize, expected: usize },
+	InvalidLength {
+		/// The actual value
+		actual: usize,
+		/// The expected value
+		expected: usize,
+	},
 	/// invalid name
-	InvalidName { actual: String, expected: String },
+	InvalidName {
+		/// The actual value
+		actual: String,
+		/// The expected value
+		expected: String,
+	},
 	/// unexpected type
 	UnexpectedType,
 }

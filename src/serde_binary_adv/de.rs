@@ -83,6 +83,7 @@ macro_rules! impl_next_uxx {
 	};
 }
 
+/// Deserializes binary data into Rust types
 pub struct Deserializer<'de> {
 	data: Vec<u8>,
 	big_endian: bool,
@@ -90,7 +91,7 @@ pub struct Deserializer<'de> {
 }
 
 impl<'de> Deserializer<'de> {
-	/// Deserializes a vector of bytes (Vec<u8>) into Rust structures.
+	/// Deserializes a vector of bytes (`Vec<u8>`) into Rust structures.
 	pub fn from_bytes<'a, T>(data: &Vec<u8>, big_endian: bool) -> Result<T>
 	where
 		T: Deserialize<'a>,
@@ -252,20 +253,18 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 		self.deserialize_str(visitor)
 	}
 
-	fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
+	fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		let len = self.next_usize()?;
-		let bytes = self.take(len)?;
-		visitor.visit_bytes(&bytes.as_slice())
+		unimplemented!()
 	}
 
-	fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
+	fn deserialize_byte_buf<V>(self, _visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		self.deserialize_bytes(visitor)
+		unimplemented!()
 	}
 
 	fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>

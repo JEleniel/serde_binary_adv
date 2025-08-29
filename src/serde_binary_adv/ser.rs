@@ -18,7 +18,7 @@ pub struct Serializer {
 }
 
 impl Serializer {
-	/// Converts a Rust value into a binary representation and returns a Vec<u8> of the bytes
+	/// Converts a Rust value into a binary representation and returns a `Vec<u8>` of the bytes
 	pub fn to_bytes<T>(value: &T, big_endian: bool) -> Result<Vec<u8>>
 	where
 		T: Serialize,
@@ -132,9 +132,8 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 		self.serialize_vec(v.as_bytes().to_vec())
 	}
 
-	fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok> {
-		self.serialize_usize(v.len()).unwrap();
-		self.serialize_vec(v.to_vec())
+	fn serialize_bytes(self, _v: &[u8]) -> Result<Self::Ok> {
+		unimplemented!()
 	}
 
 	fn serialize_none(self) -> Result<Self::Ok> {

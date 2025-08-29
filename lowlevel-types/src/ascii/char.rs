@@ -6,14 +6,17 @@ use std::fmt::Display;
 
 use serde::{Deserialize, Deserializer, Serialize, de::Visitor};
 
+/// The ascii::Char type represents a single, 8 bit ASCII character.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct Char(pub u8);
 
 impl Char {
+	/// Returns the NULL character (0x00)
 	pub fn null() -> Self {
 		Char(0x00)
 	}
 
+	/// Returns the character encoded as UTF-8 bytes
 	pub fn as_utf8(&self) -> [u8; 4] {
 		if self.0 <= 0x7F {
 			[self.0, 0x00, 0x00, 0x00]
@@ -22,6 +25,7 @@ impl Char {
 		}
 	}
 
+	/// Returns the length of the character encoded as UTF-8 bytes
 	pub fn len_utf8(&self) -> usize {
 		match self.0 {
 			0x00..0x80 => 1,
@@ -29,14 +33,17 @@ impl Char {
 		}
 	}
 
+	/// Returns the ascii::Char as a standard Rust primitive char
 	pub fn char(&self) -> char {
 		char::from(self.0)
 	}
 
+	/// Compares two ascii::Char values, ignoring letter casing
 	pub fn eq_ignore_case(&self, other: &Char) -> bool {
 		self.lowercase() == other.lowercase()
 	}
 
+	/// Returns the uppercase version of the ascii::Char
 	pub fn uppercase(&self) -> Char {
 		if self.is_lowercase() {
 			Char(self.0 - 0x20)
@@ -45,6 +52,7 @@ impl Char {
 		}
 	}
 
+	/// Returns the lowercase version of the ascii::Char
 	pub fn lowercase(&self) -> Char {
 		if self.is_uppercase() {
 			Char(self.0 + 0x20)
@@ -53,10 +61,12 @@ impl Char {
 		}
 	}
 
+	/// Returns true if the ascii::Char is a letter (A-Z, a-z)
 	pub fn is_alphabetic(&self) -> bool {
 		self.is_uppercase() || self.is_lowercase()
 	}
 
+	/// Returns true if the ascii::Char is an uppercase letter (A-Z)
 	pub fn is_uppercase(&self) -> bool {
 		match self.0 {
 			0x41..=0x5A => true,
@@ -64,6 +74,7 @@ impl Char {
 		}
 	}
 
+	/// Returns true if the ascii::Char is a lowercase letter (a-z)
 	pub fn is_lowercase(&self) -> bool {
 		match self.0 {
 			0x61..=0x7A => true,
@@ -71,6 +82,7 @@ impl Char {
 		}
 	}
 
+	/// Returns true if the ascii::Char is a decimal digit (0-9)
 	pub fn is_numeric(&self) -> bool {
 		match self.0 {
 			0x30..=0x39 => true,
@@ -78,6 +90,7 @@ impl Char {
 		}
 	}
 
+	/// Returns true if the asscii::Char is punctuation
 	pub fn is_punctuation(&self) -> bool {
 		match self.0 {
 			0x21..=0x29 | 0x3A..=0x40 | 0x5B..=0x60 | 0x7B..=0x7E => true,
@@ -85,6 +98,7 @@ impl Char {
 		}
 	}
 
+	/// Returns true if the ascii::Char is a control code (0x00-0x1F)
 	pub fn is_control(&self) -> bool {
 		match self.0 {
 			0x00..=0x1F => true,
@@ -92,6 +106,7 @@ impl Char {
 		}
 	}
 
+	/// Returns true if the ascii::Char is a whitespace character (e.g. Space, Tab)
 	pub fn is_whitespace(&self) -> bool {
 		match self.0 {
 			0x09 | 0x0A | 0x0C | 0x0D | 0x20 => true,
@@ -99,6 +114,7 @@ impl Char {
 		}
 	}
 
+	/// Returns true if the ascii::Char is the NULL character (0x00)
 	pub fn is_null(&self) -> bool {
 		self.0 == 0x00
 	}

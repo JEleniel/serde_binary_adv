@@ -4,18 +4,22 @@ use serde::{Deserialize, Deserializer, Serialize, de::Visitor};
 
 use crate::ascii::{char::Char, error::ASCIIError};
 
+/// A fixed length ASCII string of length N
 #[derive(Clone, Debug, Hash, PartialOrd)]
 pub struct FixedLengthString<const N: usize>(pub [Char; N]);
 
 impl<const N: usize> FixedLengthString<N> {
+	/// Constructs a new instance
 	pub fn new() -> Self {
 		Self([Char(0x00); N])
 	}
 
+	/// Returns the length of the string (in bytes)
 	pub fn len(&self) -> usize {
 		self.0.len()
 	}
 
+	/// Returns the raw bytes of the string
 	pub fn as_bytes(&self) -> [u8; N] {
 		self.0.map(|c| u8::from(c)).clone()
 	}
@@ -60,7 +64,6 @@ impl<const N: usize> TryFrom<&[u8]> for FixedLengthString<N> {
 					value.len(),
 					N
 				),
-				offset: None,
 			})
 		} else {
 			let v: &mut [Char; N] = &mut [Char(0x00); N];
@@ -93,7 +96,6 @@ impl<const N: usize> TryFrom<&str> for FixedLengthString<N> {
 		if !value.is_ascii() {
 			Err(ASCIIError {
 				message: format!("attempt to convert an Unicode string to an AString"),
-				offset: None,
 			})
 		} else {
 			let v: &mut Vec<u8> = &mut Vec::new();

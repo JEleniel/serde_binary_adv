@@ -47,3 +47,6 @@ unsafe_code = "forbid"
 lowlevel-types = { workspace = true }
 num = "0.4.3"
 serde = { workspace = true }
+
+[lints]
+workspace = true
