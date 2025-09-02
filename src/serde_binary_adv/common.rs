@@ -1,4 +1,17 @@
 use super::BinaryError;
+use std::mem::size_of;
+
+/// How to serialize multibyte sequences (e.g. u128, i128, f64)
+#[derive(Debug, PartialEq)]
+pub enum ByteFormat {
+	/// Little Endian format
+	LittleEndian,
+	/// Big Endian format
+	BigEndian,
+	/// Use the Native order
+	/// NOTE: This may cause portability issues.
+	NativeEndian,
+}
 
 pub mod flags {
 	pub const NONE: u8 = 0x00;
@@ -8,20 +21,19 @@ pub mod flags {
 	pub const STRUCT_VARIANT: u8 = 0xFC;
 }
 
-/// an Ok(()) or Err(serde_binary_adv::Error)
+/// an Ok(()) or Err(serde_binary_adv::BinaryError)
 pub type Result<T> = std::result::Result<T, super::BinaryError>;
 
-use std::mem::size_of;
-
-/// Encodes an integer using a hybrid continuation bit and 3-bit length prefix scheme.
-/// T must be an unsigned integer type (u8, u16, u32, u64).
+/// Encodes an `usize` using a hybrid continuation bit and 3-bit length prefix scheme.
 pub fn compress_usize(value: usize) -> Vec<u8> {
+	let mut res: Vec<u8> = Vec::new();
+
 	if value <= 0b01111111 {
-		return vec![value.clone() as u8];
+		res.push(value as u8);
+		return res;
 	}
 
 	let mut v: usize = value.clone();
-	let mut res: Vec<u8> = Vec::new();
 	let mut byte_counter: u8 = 0;
 
 	res.push((0b10000000 | (v & 0b01111111)) as u8);
@@ -38,7 +50,7 @@ pub fn compress_usize(value: usize) -> Vec<u8> {
 	res
 }
 
-/// Decodes an integer from the hybrid continuation bit and 3-bit length prefix encoding
+/// Decodes an `usize`` from the hybrid continuation bit and 3-bit length prefix encoding
 pub fn decompress_usize(bytes: &[u8]) -> Result<usize> {
 	if bytes.is_empty() {
 		return Err(BinaryError::InvalidLength {
@@ -85,13 +97,15 @@ pub fn decompress_usize(bytes: &[u8]) -> Result<usize> {
 /// These tests validate that the expected values have not been changed to preserve compatability
 #[cfg(test)]
 mod tests {
+
 	use crate::serde_binary_adv::common::{
 		compress_usize, decompress_usize,
 		flags::{NONE, NONUNIT_VARIANT, SOME, STRUCT_VARIANT, UNIT_VARIANT},
 	};
 
+	/// These tests validate that the expected values have not been changed to preserve compatability
 	#[test]
-	fn test_values() {
+	fn test_flags() {
 		assert_eq!(NONE, 0x00);
 		assert_eq!(SOME, 0xFF);
 		assert_eq!(UNIT_VARIANT, 0xFE);

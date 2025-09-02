@@ -1,5 +1,5 @@
 [package]
-name = "serde_binary_adv"
+name = "serde-binary-adv"
 version = { workspace = true }
 edition = { workspace = true }
 description = "A library for Serde to enable the serialization and deserialization of Rust structures to and from raw binary"
@@ -28,7 +28,7 @@ keywords = ["binary", "deserialization", "serde", "serialization"]
 categories = ["encoding", "parser-implementations"]
 
 [workspace.dependencies]
-lowlevel-types = { path = "lowlevel-types" }
+lowlevel-types = { version = "1.0.0-beta.2", path = "lowlevel-types" }
 serde = { version = "1", features = ["derive"] }
 
 [workspace.lints.rust]
@@ -39,6 +39,10 @@ unsafe_code = "forbid"
 lowlevel-types = { workspace = true }
 num = "0.4.3"
 serde = { workspace = true }
+
+[features]
+default = ["streaming"]
+streaming = []
 
 [lints]
 workspace = true
