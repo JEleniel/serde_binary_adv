@@ -2,6 +2,7 @@ mod binaryerror;
 mod common;
 mod de;
 mod ser;
+pub mod stream;
 
 pub use binaryerror::BinaryError;
 pub use common::Result;

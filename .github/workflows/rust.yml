@@ -1,23 +1,42 @@
-name: Rust
+name: Release
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
-
-env:
-  CARGO_TERM_COLOR: always
+    branches: ["main"]
 
 jobs:
   build:
-
+    name: Build ${{ matrix.target }}
     runs-on: ubuntu-latest
-
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: "aarch64-apple-darwin"
+            archive: zip
+          - target: "aarch64-apple-ios"
+            archive: zip
+          - target: "aarch64-linux-android"
+            archive: zip
+          - target: "aarch64-unknown-linux-gnu"
+            archive: tar.gz
+          - target: "x86_64-apple-darwin"
+            archive: zip
+          - target: "x86_64-apple-ios"
+            archive: zip
+          - target: "x86_64-pc-windows-gnu"
+            archive: zip
+          - target: "x86_64-unknown-linux-gnu"
+            archive: tar.gz
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions-rust-lang/setup-rust-toolchain@v1
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
+      - uses: actions/checkout@master
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: ${{ matrix.target }}
+          components: ["rustfmt"]
+      - name: Build ${{ matrix.target }}
+        run: cargo build --target ${{ matrix.target }} --release --locked
+      - name: Package ${{ matrix.target }}
+        run: cargo package --target ${{ matrix.target }} --locked
