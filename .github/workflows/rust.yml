@@ -23,6 +23,6 @@ jobs:
       - name: Build
         run: cargo build --release --locked --target aarch64-apple-darwin --target aarch64-apple-ios --target aarch64-linux-android --target aarch64-unknown-linux-gnu --target x86_64-apple-darwin --target x86_64-apple-ios --target x86_64-pc-windows-gnu --target x86_64-unknown-linux-gnu
       - name: Publish lowlevel-types
-        run: cargo publish --release -p lowlevel-types --locked --target aarch64-apple-darwin --target aarch64-apple-ios --target aarch64-linux-android --target aarch64-unknown-linux-gnu --target x86_64-apple-darwin --target x86_64-apple-ios --target x86_64-pc-windows-gnu --target x86_64-unknown-linux-gnu
+        run: cargo publish -p lowlevel-types --locked --target aarch64-apple-darwin --target aarch64-apple-ios --target aarch64-linux-android --target aarch64-unknown-linux-gnu --target x86_64-apple-darwin --target x86_64-apple-ios --target x86_64-pc-windows-gnu --target x86_64-unknown-linux-gnu
       - name: Publish serde-binary-adv
-        run: cargo publish --release -p serde-binary-adv --locked --target aarch64-apple-darwin --target aarch64-apple-ios --target aarch64-linux-android --target aarch64-unknown-linux-gnu --target x86_64-apple-darwin --target x86_64-apple-ios --target x86_64-pc-windows-gnu --target x86_64-unknown-linux-gnu
+        run: cargo publish -p serde-binary-adv --locked --target aarch64-apple-darwin --target aarch64-apple-ios --target aarch64-linux-android --target aarch64-unknown-linux-gnu --target x86_64-apple-darwin --target x86_64-apple-ios --target x86_64-pc-windows-gnu --target x86_64-unknown-linux-gnu
