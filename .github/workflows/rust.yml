@@ -12,8 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-    env:
-      CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+    environment: crates.io
     steps:
       - uses: actions/checkout@master
       - uses: actions-rust-lang/setup-rust-toolchain@v1
