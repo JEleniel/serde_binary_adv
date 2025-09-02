@@ -2,9 +2,9 @@ name: Release
 
 on:
   push:
-    branches: ["main"]
+    branches: ['main']
   pull_request:
-    branches: ["main"]
+    branches: ['main']
 
 jobs:
   build:
@@ -12,31 +12,14 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - target: "aarch64-apple-darwin"
-            archive: zip
-          - target: "aarch64-apple-ios"
-            archive: zip
-          - target: "aarch64-linux-android"
-            archive: zip
-          - target: "aarch64-unknown-linux-gnu"
-            archive: tar.gz
-          - target: "x86_64-apple-darwin"
-            archive: zip
-          - target: "x86_64-apple-ios"
-            archive: zip
-          - target: "x86_64-pc-windows-gnu"
-            archive: zip
-          - target: "x86_64-unknown-linux-gnu"
-            archive: tar.gz
     steps:
       - uses: actions/checkout@master
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          target: ${{ matrix.target }}
-          components: ["rustfmt"]
-      - name: Build ${{ matrix.target }}
-        run: cargo build --target ${{ matrix.target }} --release --locked
-      - name: Package ${{ matrix.target }}
-        run: cargo package --target ${{ matrix.target }} --locked
+          target: aarch64-apple-darwin,aarch64-apple-ios,aarch64-linux-android,aarch64-unknown-linux-gnu,x86_64-apple-darwin,x86_64-apple-ios,x86_64-pc-windows-gnu,x86_64-unknown-linux-gnu
+      - name: Build
+        run: cargo build --release --locked --target aarch64-apple-darwin --target aarch64-apple-ios --target aarch64-linux-android --target aarch64-unknown-linux-gnu --target x86_64-apple-darwin --target x86_64-apple-ios --target x86_64-pc-windows-gnu --target x86_64-unknown-linux-gnu
+      - name: Package
+        run: cargo package --locked --target aarch64-apple-darwin --target aarch64-apple-ios --target aarch64-linux-android --target aarch64-unknown-linux-gnu --target x86_64-apple-darwin --target x86_64-apple-ios --target x86_64-pc-windows-gnu --target x86_64-unknown-linux-gnu
+      - name: Publish
+        run: cargo publish --locked --target aarch64-apple-darwin --target aarch64-apple-ios --target aarch64-linux-android --target aarch64-unknown-linux-gnu --target x86_64-apple-darwin --target x86_64-apple-ios --target x86_64-pc-windows-gnu --target x86_64-unknown-linux-gnu
