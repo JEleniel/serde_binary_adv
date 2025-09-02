@@ -2,10 +2,11 @@ mod binaryerror;
 mod common;
 mod de;
 mod ser;
+#[cfg(feature = "streaming")]
 pub mod stream;
 
 pub use binaryerror::BinaryError;
-pub use common::Result;
+pub use common::{ByteFormat, Result};
 pub use de::Deserializer;
 pub use ser::Serializer;
 

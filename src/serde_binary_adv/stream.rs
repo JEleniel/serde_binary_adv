@@ -49,9 +49,10 @@ mod tests {
 					Deserializer::read_bytes(&mut buf.as_slice(), false).unwrap();
 				assert_eq!($v as $ty, deserialized);
 
-				Serializer::write_bytes(buf, &$v, true).unwrap();
+				let buf2: &mut Vec<u8> = &mut Vec::new();
+				Serializer::write_bytes(buf2, &$v, true).unwrap();
 				let deserialized2: $ty =
-					Deserializer::read_bytes(&mut buf.as_slice(), true).unwrap();
+					Deserializer::read_bytes(&mut buf2.as_slice(), true).unwrap();
 				assert_eq!($v as $ty, deserialized2);
 			}
 		};
@@ -144,7 +145,20 @@ mod tests {
 		[u8; 3],
 		[0x41 as u8, 0x42 as u8, 0x43 as u8]
 	);
-	impl_test_x!(test_array, [u64; 3], [0x41, 0x42, 0x43]);
+
+	#[test]
+	fn test_array() {
+		let v: [u64; 3] = [0x41, 0x42, 0x43];
+		let buf: &mut Vec<u8> = &mut Vec::new();
+		Serializer::write_bytes(buf, &v, false).unwrap();
+		let deserialized: [u64; 3] = Deserializer::read_bytes(&mut buf.as_slice(), false).unwrap();
+		assert_eq!(v, deserialized);
+
+		let buf2: &mut Vec<u8> = &mut Vec::new();
+		Serializer::write_bytes(buf2, &v, true).unwrap();
+		let deserialized2: [u64; 3] = Deserializer::read_bytes(&mut buf2.as_slice(), true).unwrap();
+		assert_eq!(v, deserialized2);
+	}
 
 	#[test]
 	fn test_map() {
@@ -157,9 +171,10 @@ mod tests {
 			Deserializer::read_bytes(&mut buf.as_slice(), false).unwrap();
 		assert_eq!(v, deserialized);
 
-		Serializer::write_bytes(buf, &v, true).unwrap();
+		let buf2: &mut Vec<u8> = &mut Vec::new();
+		Serializer::write_bytes(buf2, &v, true).unwrap();
 		let deserialized2: HashMap<String, char> =
-			Deserializer::read_bytes(&mut buf.as_slice(), true).unwrap();
+			Deserializer::read_bytes(&mut buf2.as_slice(), true).unwrap();
 		assert_eq!(v, deserialized2);
 	}
 

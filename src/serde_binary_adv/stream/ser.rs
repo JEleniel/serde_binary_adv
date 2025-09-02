@@ -48,7 +48,7 @@ impl<'se> Serializer<'se> {
 		if self.big_endian {
 			self.write(&v.to_be_bytes().as_mut().to_vec());
 		} else {
-			self.write(&v.to_be_bytes().as_mut().to_vec());
+			self.write(&v.to_le_bytes().as_mut().to_vec());
 		}
 		Ok(())
 	}

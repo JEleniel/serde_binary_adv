@@ -216,10 +216,10 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 				bytes.append(&mut self.take(1)?);
 			}
 			0xE0..=0xEF => {
-				bytes.append(&mut self.take(3)?);
+				bytes.append(&mut self.take(2)?);
 			}
 			0xF0..=0xFF => {
-				bytes.append(&mut self.take(4)?);
+				bytes.append(&mut self.take(3)?);
 			}
 			_ => return Err(BinaryError::InvalidBytes),
 		}
@@ -432,8 +432,7 @@ impl<'de, 'a> SeqAccess<'de> for BinarySeries<'a, 'de> {
 	where
 		T: DeserializeSeed<'de>,
 	{
-		self.position += 1;
-		if self.position == self.len + 1 {
+		if self.position == self.len {
 			return Ok(None);
 		} else if self.position > self.len {
 			return Err(BinaryError::InvalidLength {
@@ -441,6 +440,7 @@ impl<'de, 'a> SeqAccess<'de> for BinarySeries<'a, 'de> {
 				expected: self.len,
 			});
 		}
+		self.position += 1;
 		seed.deserialize(&mut *self.de).map(Some)
 	}
 }
@@ -452,8 +452,7 @@ impl<'de, 'a> MapAccess<'de> for BinarySeries<'a, 'de> {
 	where
 		K: de::DeserializeSeed<'de>,
 	{
-		self.position += 1;
-		if self.position == self.len + 1 {
+		if self.position == self.len {
 			return Ok(None);
 		} else if self.position > self.len {
 			return Err(BinaryError::InvalidLength {
@@ -461,6 +460,7 @@ impl<'de, 'a> MapAccess<'de> for BinarySeries<'a, 'de> {
 				expected: self.len,
 			});
 		}
+		self.position += 1;
 		seed.deserialize(&mut *self.de).map(Some)
 	}
 
