@@ -9,7 +9,6 @@ use serde::de::{
 	self, DeserializeSeed, EnumAccess, IntoDeserializer, MapAccess, VariantAccess, Visitor,
 };
 use serde::{Deserialize, de::SeqAccess};
-use std::marker::PhantomData;
 
 macro_rules! impl_deserialize_num {
 	($name:ident, $ty:ty, $visit:ident) => {
@@ -17,7 +16,7 @@ macro_rules! impl_deserialize_num {
 		where
 			V: Visitor<'de>,
 		{
-			let bytes: Vec<u8> = match self.take(size_of::<$ty>()) {
+			let bytes: &[u8] = match self.take(size_of::<$ty>()) {
 				Ok(v) => v,
 				Err(e) => {
 					return Err(e);
@@ -85,14 +84,14 @@ macro_rules! impl_next_uxx {
 
 /// Deserializes binary data into Rust types
 pub struct Deserializer<'de> {
-	data: Vec<u8>,
+	data: &'de [u8],
+	offset: usize,
 	big_endian: bool,
-	_flag: PhantomData<&'de bool>,
 }
 
 impl<'de> Deserializer<'de> {
 	/// Deserializes a vector of bytes (`Vec<u8>`) into Rust structures.
-	pub fn from_bytes<'a, T>(data: &Vec<u8>, big_endian: bool) -> Result<T>
+	pub fn from_bytes<'a, T>(data: &'a [u8], big_endian: bool) -> Result<T>
 	where
 		T: Deserialize<'a>,
 	{
@@ -103,38 +102,39 @@ impl<'de> Deserializer<'de> {
 	}
 
 	/// Creates a binary deserializer
-	pub fn new(input: &Vec<u8>, big_endian: bool) -> Deserializer<'de> {
+	pub fn new(input: &'de [u8], big_endian: bool) -> Deserializer<'de> {
 		Deserializer {
-			data: input.clone(),
+			data: input,
+			offset: 0,
 			big_endian,
-			_flag: PhantomData,
 		}
 	}
 
-	fn peek(&mut self) -> Result<u8> {
-		if self.data.len() == 0 {
+	fn peek(&self) -> Result<u8> {
+		if self.offset >= self.data.len() {
 			Err(BinaryError::UnexpectedEndOfInput)
 		} else {
-			Ok(self.data[0])
+			Ok(self.data[self.offset])
 		}
 	}
 
 	fn next(&mut self) -> Result<u8> {
-		if self.data.len() == 0 {
+		if self.offset >= self.data.len() {
 			Err(BinaryError::UnexpectedEndOfInput)
 		} else {
-			Ok(self.data.remove(0))
+			let byte = self.data[self.offset];
+			self.offset += 1;
+			Ok(byte)
 		}
 	}
 
-	fn take(&mut self, len: usize) -> Result<Vec<u8>> {
-		if self.data.len() < len {
+	fn take(&mut self, len: usize) -> Result<&'de [u8]> {
+		if self.offset + len > self.data.len() {
 			Err(BinaryError::UnexpectedEndOfInput)
 		} else {
-			let working = self.data.clone();
-			let (res, rem) = working.split_at(len);
-			self.data = rem.to_vec();
-			Ok(res.to_vec())
+			let slice = &self.data[self.offset..self.offset + len];
+			self.offset += len;
+			Ok(slice)
 		}
 	}
 
@@ -156,7 +156,7 @@ impl<'de> Deserializer<'de> {
 
 	fn take_string(&mut self) -> Result<String> {
 		let size = self.next_usize()?;
-		match String::from_utf8(self.take(size)?) {
+		match String::from_utf8(self.take(size)?.to_vec()) {
 			Ok(v) => Ok(v),
 			Err(e) => Err(BinaryError::Message {
 				message: format!("{:?}", e),
@@ -206,7 +206,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	where
 		V: Visitor<'de>,
 	{
-		let bytes: Vec<u8>;
+		let bytes: &[u8];
 		match self.peek()? {
 			0x00..=0x7F => {
 				bytes = self.take(1)?;
@@ -220,7 +220,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 			0xF0..=0xFF => bytes = self.take(4)?,
 			_ => return Err(BinaryError::InvalidBytes),
 		}
-		let s = match String::from_utf8(bytes) {
+		let s = match String::from_utf8(bytes.to_vec()) {
 			Ok(v) => v,
 			Err(e) => {
 				return Err(BinaryError::from(e));
@@ -253,18 +253,22 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 		self.deserialize_str(visitor)
 	}
 
-	fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value>
+	fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		unimplemented!()
+		let len = self.next_usize()?;
+		let bytes = self.take(len)?;
+		visitor.visit_bytes(bytes)
 	}
 
-	fn deserialize_byte_buf<V>(self, _visitor: V) -> Result<V::Value>
+	fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		unimplemented!()
+		let len = self.next_usize()?;
+		let bytes = self.take(len)?;
+		visitor.visit_byte_buf(bytes.to_vec())
 	}
 
 	fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>

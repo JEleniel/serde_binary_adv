@@ -10,7 +10,7 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
 name = "lowlevel-types"
-version = "1.0.0-beta.2"
+version = "1.0.0-beta.3"
 dependencies = [
  "serde",
  "serde_test",
@@ -118,7 +118,7 @@ dependencies = [
 
 [[package]]
 name = "serde-binary-adv"
-version = "1.0.0-beta.2"
+version = "1.0.0-beta.3"
 dependencies = [
  "lowlevel-types",
  "num",

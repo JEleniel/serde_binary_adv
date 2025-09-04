@@ -1,15 +1,20 @@
 # Serde Binary Advanced
 
-Serde Binary Advanced is a [Serde](https://crates.io/crates/serde) library enabling the serialization and deserialization of Rust objects to raw binary representations.
+Serde Binary Advanced is a [Serde](https://crates.io/crates/serde) library enabling the serialization and deserialization of Rust objects to binary representations.
 
 ## Features
 
-- Serialization and deserialization of Rust data structures to and from raw binary format
-- Full support for ASCII, UTF-8, UTI-16, and UTF-32 characters and strings
-- Support for enums as 8, 16, 32, or 64 bit integers
-- Support for bit flags
-- Comprehensive error reporting, including the nature and location of the error
-- Signature checking of the source binary data when deserializing
+- Serialization and deserialization of Rust data structures to and from binary format
+- Full support for ASCII (through `lowlevel-types`) and UTF-8 characters and strings
+- Support for Big Endian and Little Endian (default) encoding
+- Comprehensive error reporting
+- Compression of `usize` markers for sequences and structures
+- Support for `u128` and `i128` types
+- Enums and variants stored as `u32`
+
+## Limitations
+
+- No support foe serializing or deserializing sequences or maps of unknown length
 
 ## Installation
 
@@ -20,7 +25,8 @@ Add this to your Cargo.toml:
 ```toml
 [dependencies]
 serde = { version = "1", features = ["derive"] }
-serde_yml = { version = "1" }
+serde_binary_adv = { version = "1.0.0-beta.3" }
+lowlevel_types = { version = "1.0.0-beta.3" }
 ```
 
 ## Usage
@@ -29,6 +35,7 @@ Here's a quick example on how to use Serde Binary Advanced to serialize and dese
 
 ```rust
 use serde::{Serialize, Deserialize};
+use serde_binary_adv::{Serializer, Deserializer, BinaryError, Result}
 
 # [derive(Serialize, Deserialize)]
 struct Point {
@@ -36,18 +43,12 @@ struct Point {
     y: f64,
 }
 
-fn main() -> Result<(), serde_yml::Error> {
+fn main() {
     let point = Point { x: 1.0, y: 2.0 };
 
-    // Serialize to bytes
-    let raw: Vec<u8> = serde_binary_adv::to_bytes(&point)?;
-    assert_eq!(yaml, vec![0x3f,0x80,0x00,0x00]);
-
-    // Deserialize from YAML
-    let deserialized_point: Point = serde_yml::from_bytes(&raw)?;
-    assert_eq!(point, deserialized_point);
-
-    Ok(())
+    let serialized = Serializer::to_bytes(&point, false).unwrap();
+    let deserialized: Point = Deserializer::from_bytes(&serialized, false).unwrap();
+	assert_eq!(value, deserialized,);
 }
 ```
 
