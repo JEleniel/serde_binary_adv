@@ -151,12 +151,11 @@ mod tests {
 		test_be(v.clone());
 	}
 
-	// Test Serde Tuple
 	impl_test_x!(test_tuple, ('a', 16, 0x41 as u8));
 
-	fn test<'a, T>(value: T)
+	fn test<T>(value: T)
 	where
-		T: Serialize + Deserialize<'a> + std::fmt::Debug + PartialEq,
+		T: Serialize + for<'de> Deserialize<'de> + std::fmt::Debug + PartialEq,
 	{
 		let serialized = Serializer::to_bytes(&value, false).unwrap();
 		let deserialized: T = Deserializer::from_bytes(&serialized, false).unwrap();
@@ -167,9 +166,9 @@ mod tests {
 		);
 	}
 
-	fn test_be<'a, T>(value: T)
+	fn test_be<T>(value: T)
 	where
-		T: Serialize + Deserialize<'a> + std::fmt::Debug + PartialEq,
+		T: Serialize + for<'de> Deserialize<'de> + std::fmt::Debug + PartialEq,
 	{
 		let serialized = Serializer::to_bytes(&value, true).unwrap();
 		let deserialized: T = Deserializer::from_bytes(&serialized, true).unwrap();
@@ -180,9 +179,9 @@ mod tests {
 		);
 	}
 
-	fn test_undersized<'a, T>(value: T)
+	fn test_undersized<T>(value: T)
 	where
-		T: Serialize + Deserialize<'a> + std::fmt::Debug + PartialEq,
+		T: Serialize + for<'de> Deserialize<'de> + std::fmt::Debug + PartialEq,
 	{
 		let serialized = Serializer::to_bytes(&value, false).unwrap();
 		let shrunk = serialized[0..serialized.len() - 1].to_vec();
