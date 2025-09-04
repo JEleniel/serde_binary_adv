@@ -14,7 +14,6 @@ use serde::{Serialize, ser};
 pub struct Serializer {
 	output: Vec<u8>,
 	big_endian: bool,
-	unsized_seq: bool,
 }
 
 impl Serializer {
@@ -33,7 +32,6 @@ impl Serializer {
 		Self {
 			output: Vec::new(),
 			big_endian,
-			unsized_seq: false,
 		}
 	}
 
@@ -192,7 +190,6 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 		match len {
 			Some(n) => {
 				self.serialize_usize(n).unwrap();
-				self.unsized_seq = false;
 			}
 			None => unimplemented!(),
 		}

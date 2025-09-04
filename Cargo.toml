@@ -20,7 +20,7 @@ include = [
 default-members = ["./", "lowlevel-types"]
 
 [workspace.package]
-version = "1.0.0-beta.2"
+version = "1.0.0-beta.3"
 edition = "2024"
 repository = "https://github.com/JEleniel/serde_binary_adv"
 license = "MIT OR Apache-2.0"
@@ -28,7 +28,7 @@ keywords = ["binary", "deserialization", "serde", "serialization"]
 categories = ["encoding", "parser-implementations"]
 
 [workspace.dependencies]
-lowlevel-types = { version = "1.0.0-beta.2", path = "lowlevel-types" }
+lowlevel-types = { version = "1.0.0-beta.3", path = "lowlevel-types" }
 serde = { version = "1", features = ["derive"] }
 
 [workspace.lints.rust]
