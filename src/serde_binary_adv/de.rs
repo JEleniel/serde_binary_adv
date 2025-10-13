@@ -259,7 +259,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	{
 		let len = self.next_usize()?;
 		let bytes = self.take(len)?;
-		visitor.visit_bytes(bytes)
+		visitor.visit_borrowed_bytes(bytes)
 	}
 
 	fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>

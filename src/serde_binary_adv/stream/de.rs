@@ -256,18 +256,23 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 		self.deserialize_str(visitor)
 	}
 
-	fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value>
+	fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		unimplemented!()
+		let len = self.next_usize()?;
+		let vec = self.take(len)?;
+		let bytes: &'de [u8] = Box::leak(vec.into_boxed_slice());
+		visitor.visit_borrowed_bytes(bytes)
 	}
 
-	fn deserialize_byte_buf<V>(self, _visitor: V) -> Result<V::Value>
+	fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
 	where
 		V: Visitor<'de>,
 	{
-		unimplemented!()
+		let len: usize = self.next_usize()?;
+		let bytes = self.take(len)?;
+		visitor.visit_byte_buf(bytes)
 	}
 
 	fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
