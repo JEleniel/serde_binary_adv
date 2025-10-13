@@ -133,6 +133,34 @@ mod tests {
 	impl_test_x!(test_array, [0x41, 0x42, 0x43]);
 
 	#[test]
+	fn test_borrowed_bytes() {
+		// The data must live as long as the deserialized reference.
+		let value: &[u8] = &[0x41, 0x42, 0x43];
+		let serialized = Serializer::to_bytes(&value, false).unwrap();
+
+		// Make the test function generic over the lifetime.
+		fn roundtrip<'de>(input: &'de [u8]) {
+			let deserialized: &'de [u8] = Deserializer::from_bytes(&input, false).unwrap();
+			assert_eq!(&input[1..], deserialized);
+		}
+
+		roundtrip(&serialized);
+	}
+
+	#[test]
+	fn test_serde_bytes_bytes() {
+		use serde_bytes::Bytes;
+		let data = [0x41, 0x42, 0x43];
+		let value: &Bytes = Bytes::new(&data);
+
+		let serialized = Serializer::to_bytes(&value, false).unwrap();
+		let deserialized: &Bytes =
+			Deserializer::from_bytes(Bytes::new(&serialized), false).unwrap();
+
+		assert_eq!(value, deserialized);
+	}
+
+	#[test]
 	fn test_map() {
 		let mut v: HashMap<String, char> = HashMap::new();
 		v.insert(String::from("a"), 'a');
@@ -142,6 +170,15 @@ mod tests {
 	}
 
 	impl_test_x!(test_tuple, ('a', 16, 0x41 as u8));
+
+	#[test]
+	fn test_serde_bytes_bytebuf() {
+		use serde_bytes::ByteBuf;
+		let value = ByteBuf::from(vec![0x41, 0x42, 0x43]);
+		let serialized = Serializer::to_bytes(&value, false).unwrap();
+		let deserialized: ByteBuf = Deserializer::from_bytes(&serialized, false).unwrap();
+		assert_eq!(value, deserialized);
+	}
 
 	fn test<T>(value: T)
 	where

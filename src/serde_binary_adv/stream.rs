@@ -161,6 +161,54 @@ mod tests {
 	}
 
 	#[test]
+	fn test_borrowed_bytes() {
+		let bytes: &[u8] = &[0x41, 0x42, 0x43, 0x44];
+		let mut buf = [0u8; 16];
+		let mut written = &mut buf[..];
+		Serializer::write_bytes(&mut written, &bytes, false).unwrap();
+		let used = 16 - written.len();
+		let mut read = &buf[..used];
+		let deserialized: &[u8] = Deserializer::read_bytes(&mut read, false).unwrap();
+		assert_eq!(bytes, deserialized);
+
+		let mut buf2 = [0u8; 16];
+		let mut written2 = &mut buf2[..];
+		Serializer::write_bytes(&mut written2, &bytes, true).unwrap();
+		let used2 = 16 - written2.len();
+		let mut read2 = &buf2[..used2];
+		let deserialized2: &[u8] = Deserializer::read_bytes(&mut read2, true).unwrap();
+		assert_eq!(bytes, deserialized2);
+	}
+
+	#[test]
+	fn test_serialize_byte_buf() {
+		let bytes = vec![0x41, 0x42, 0x43, 0x44];
+		let mut buf = Vec::new();
+		Serializer::write_bytes(&mut buf, &bytes, false).unwrap();
+		let deserialized: Vec<u8> = Deserializer::read_bytes(&mut buf.as_slice(), false).unwrap();
+		assert_eq!(bytes, deserialized);
+
+		let mut buf2 = Vec::new();
+		Serializer::write_bytes(&mut buf2, &bytes, true).unwrap();
+		let deserialized2: Vec<u8> = Deserializer::read_bytes(&mut buf2.as_slice(), true).unwrap();
+		assert_eq!(bytes, deserialized2);
+	}
+
+	#[test]
+	fn test_deserialize_byte_buf() {
+		let orig = vec![0x41, 0x42, 0x43, 0x44];
+		let mut buf = Vec::new();
+		Serializer::write_bytes(&mut buf, &orig, false).unwrap();
+		let deserialized: Vec<u8> = Deserializer::read_bytes(&mut buf.as_slice(), false).unwrap();
+		assert_eq!(orig, deserialized);
+
+		let mut buf2 = Vec::new();
+		Serializer::write_bytes(&mut buf2, &orig, true).unwrap();
+		let deserialized2: Vec<u8> = Deserializer::read_bytes(&mut buf2.as_slice(), true).unwrap();
+		assert_eq!(orig, deserialized2);
+	}
+
+	#[test]
 	fn test_map() {
 		let mut v: HashMap<String, char> = HashMap::new();
 		v.insert(String::from("a"), 'a');
@@ -180,4 +228,194 @@ mod tests {
 
 	// Test Serde Tuple
 	impl_test_x!(test_tuple, (char, i32, u8), ('a', 16, 0x41 as u8));
+
+	#[test]
+	fn test_empty_vec() {
+		let v: Vec<u8> = vec![];
+		let mut buf = Vec::new();
+		Serializer::write_bytes(&mut buf, &v, false).unwrap();
+		let deserialized: Vec<u8> = Deserializer::read_bytes(&mut buf.as_slice(), false).unwrap();
+		assert_eq!(v, deserialized);
+
+		let mut buf2 = Vec::new();
+		Serializer::write_bytes(&mut buf2, &v, true).unwrap();
+		let deserialized2: Vec<u8> = Deserializer::read_bytes(&mut buf2.as_slice(), true).unwrap();
+		assert_eq!(v, deserialized2);
+	}
+
+	#[test]
+	fn test_empty_string() {
+		let s = String::new();
+		let mut buf = Vec::new();
+		Serializer::write_bytes(&mut buf, &s, false).unwrap();
+		let deserialized: String = Deserializer::read_bytes(&mut buf.as_slice(), false).unwrap();
+		assert_eq!(s, deserialized);
+
+		let mut buf2 = Vec::new();
+		Serializer::write_bytes(&mut buf2, &s, true).unwrap();
+		let deserialized2: String = Deserializer::read_bytes(&mut buf2.as_slice(), true).unwrap();
+		assert_eq!(s, deserialized2);
+	}
+
+	#[test]
+	fn test_empty_map() {
+		let v: HashMap<u8, u8> = HashMap::new();
+		let mut buf = Vec::new();
+		Serializer::write_bytes(&mut buf, &v, false).unwrap();
+		let deserialized: HashMap<u8, u8> =
+			Deserializer::read_bytes(&mut buf.as_slice(), false).unwrap();
+		assert_eq!(v, deserialized);
+
+		let mut buf2 = Vec::new();
+		Serializer::write_bytes(&mut buf2, &v, true).unwrap();
+		let deserialized2: HashMap<u8, u8> =
+			Deserializer::read_bytes(&mut buf2.as_slice(), true).unwrap();
+		assert_eq!(v, deserialized2);
+	}
+
+	#[test]
+	fn test_unit_struct_roundtrip() {
+		let v = Unit;
+		let mut buf = Vec::new();
+		Serializer::write_bytes(&mut buf, &v, false).unwrap();
+		let deserialized: Unit = Deserializer::read_bytes(&mut buf.as_slice(), false).unwrap();
+		assert_eq!(v, deserialized);
+	}
+
+	#[test]
+	fn test_tuple_struct_roundtrip() {
+		let v = TupleStruct(1, 2, 3);
+		let mut buf = Vec::new();
+		Serializer::write_bytes(&mut buf, &v, false).unwrap();
+		let deserialized: TupleStruct =
+			Deserializer::read_bytes(&mut buf.as_slice(), false).unwrap();
+		assert_eq!(v, deserialized);
+	}
+
+	#[test]
+	fn test_struct_with_empty_string() {
+		let v = Test {
+			byte: 0,
+			string: String::new(),
+		};
+		let mut buf = Vec::new();
+		Serializer::write_bytes(&mut buf, &v, false).unwrap();
+		let deserialized: Test = Deserializer::read_bytes(&mut buf.as_slice(), false).unwrap();
+		assert_eq!(v, deserialized);
+	}
+
+	#[test]
+	fn test_option_some_none() {
+		let v: Option<u8> = Some(42);
+		let mut buf = Vec::new();
+		Serializer::write_bytes(&mut buf, &v, false).unwrap();
+		let deserialized: Option<u8> =
+			Deserializer::read_bytes(&mut buf.as_slice(), false).unwrap();
+		assert_eq!(v, deserialized);
+
+		let v: Option<u8> = None;
+		let mut buf = Vec::new();
+		Serializer::write_bytes(&mut buf, &v, false).unwrap();
+		let deserialized: Option<u8> =
+			Deserializer::read_bytes(&mut buf.as_slice(), false).unwrap();
+		assert_eq!(v, deserialized);
+	}
+
+	#[test]
+	fn test_struct_variant_empty_fields() {
+		#[derive(Serialize, Deserialize, Debug, PartialEq)]
+		enum E {
+			S {},
+		}
+		let v = E::S {};
+		let mut buf = Vec::new();
+		Serializer::write_bytes(&mut buf, &v, false).unwrap();
+		let deserialized: E = Deserializer::read_bytes(&mut buf.as_slice(), false).unwrap();
+		assert_eq!(v, deserialized);
+	}
+
+	#[test]
+	fn test_tuple_variant_empty() {
+		#[derive(Serialize, Deserialize, Debug, PartialEq)]
+		enum E {
+			T(),
+		}
+		let v = E::T();
+		let mut buf = Vec::new();
+		Serializer::write_bytes(&mut buf, &v, false).unwrap();
+		let deserialized: E = Deserializer::read_bytes(&mut buf.as_slice(), false).unwrap();
+		assert_eq!(v, deserialized);
+	}
+
+	#[test]
+	fn test_enum_unit_variant() {
+		#[derive(Serialize, Deserialize, Debug, PartialEq)]
+		enum E {
+			U,
+		}
+		let v = E::U;
+		let mut buf = Vec::new();
+		Serializer::write_bytes(&mut buf, &v, false).unwrap();
+		let deserialized: E = Deserializer::read_bytes(&mut buf.as_slice(), false).unwrap();
+		assert_eq!(v, deserialized);
+	}
+
+	#[test]
+	fn test_enum_newtype_variant() {
+		#[derive(Serialize, Deserialize, Debug, PartialEq)]
+		enum E {
+			N(u8),
+		}
+		let v = E::N(123);
+		let mut buf = Vec::new();
+		Serializer::write_bytes(&mut buf, &v, false).unwrap();
+		let deserialized: E = Deserializer::read_bytes(&mut buf.as_slice(), false).unwrap();
+		assert_eq!(v, deserialized);
+	}
+
+	#[test]
+	fn test_enum_tuple_variant() {
+		#[derive(Serialize, Deserialize, Debug, PartialEq)]
+		enum E {
+			T(u8, u8),
+		}
+		let v = E::T(1, 2);
+		let mut buf = Vec::new();
+		Serializer::write_bytes(&mut buf, &v, false).unwrap();
+		let deserialized: E = Deserializer::read_bytes(&mut buf.as_slice(), false).unwrap();
+		assert_eq!(v, deserialized);
+	}
+
+	#[test]
+	fn test_enum_struct_variant() {
+		#[derive(Serialize, Deserialize, Debug, PartialEq)]
+		enum E {
+			S { x: u8, y: u8 },
+		}
+		let v = E::S { x: 1, y: 2 };
+		let mut buf = Vec::new();
+		Serializer::write_bytes(&mut buf, &v, false).unwrap();
+		let deserialized: E = Deserializer::read_bytes(&mut buf.as_slice(), false).unwrap();
+		assert_eq!(v, deserialized);
+	}
+
+	#[test]
+	fn test_map_non_string_key() {
+		let mut v: HashMap<u8, u8> = HashMap::new();
+		v.insert(1, 2);
+		let mut buf = Vec::new();
+		Serializer::write_bytes(&mut buf, &v, false).unwrap();
+		let deserialized: HashMap<u8, u8> =
+			Deserializer::read_bytes(&mut buf.as_slice(), false).unwrap();
+		assert_eq!(v, deserialized);
+	}
+
+	#[test]
+	fn test_array_empty() {
+		let v: [u8; 0] = [];
+		let mut buf = Vec::new();
+		Serializer::write_bytes(&mut buf, &v, false).unwrap();
+		let deserialized: [u8; 0] = Deserializer::read_bytes(&mut buf.as_slice(), false).unwrap();
+		assert_eq!(v, deserialized);
+	}
 }

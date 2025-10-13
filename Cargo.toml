@@ -20,7 +20,7 @@ include = [
 default-members = ["./", "lowlevel-types"]
 
 [workspace.package]
-version = "1.0.0"
+version = "1.1.0"
 edition = "2024"
 repository = "https://github.com/JEleniel/serde_binary_adv"
 license = "MIT OR Apache-2.0"
@@ -39,6 +39,7 @@ unsafe_code = "forbid"
 lowlevel-types = { workspace = true }
 num = "0.4.3"
 serde = { workspace = true }
+serde_bytes = "0.11.19"
 
 [features]
 default = ["streaming"]

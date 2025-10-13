@@ -140,8 +140,8 @@ impl<'se> ser::Serializer for &mut Serializer<'se> {
 		self.serialize_vec(v.as_bytes().to_vec())
 	}
 
-	fn serialize_bytes(self, _v: &[u8]) -> Result<Self::Ok> {
-		unimplemented!()
+	fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok> {
+		self.serialize_vec(v.to_vec())
 	}
 
 	fn serialize_none(self) -> Result<Self::Ok> {
