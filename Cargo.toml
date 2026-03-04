@@ -20,7 +20,7 @@ include = [
 default-members = ["./", "lowlevel-types"]
 
 [workspace.package]
-version = "1.1.0"
+version = "2.0.0"
 edition = "2024"
 repository = "https://github.com/JEleniel/serde_binary_adv"
 license = "MIT OR Apache-2.0"
@@ -28,8 +28,9 @@ keywords = ["binary", "deserialization", "serde", "serialization"]
 categories = ["encoding", "parser-implementations"]
 
 [workspace.dependencies]
-lowlevel-types = { path = "lowlevel-types", version = "1.0.0" }
+lowlevel-types = { path = "lowlevel-types", version = "2.0.0" }
 serde = { version = "1", features = ["derive"] }
+thiserror = { version = "2.0.17" }
 
 [workspace.lints.rust]
 missing_docs = "warn"
@@ -39,7 +40,7 @@ unsafe_code = "forbid"
 lowlevel-types = { workspace = true }
 num = "0.4.3"
 serde = { workspace = true }
-serde_bytes = "0.11.19"
+thiserror = { workspace = true }
 
 [features]
 default = ["streaming"]

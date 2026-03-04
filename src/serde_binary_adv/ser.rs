@@ -17,6 +17,14 @@ pub struct Serializer {
 }
 
 impl Serializer {
+	/// Creates a new binary Serializer
+	pub fn new(big_endian: bool) -> Self {
+		Self {
+			output: Vec::new(),
+			big_endian,
+		}
+	}
+
 	/// Converts a Rust value into a binary representation and returns a `Vec<u8>` of the bytes
 	pub fn to_bytes<T>(value: &T, big_endian: bool) -> Result<Vec<u8>>
 	where
@@ -27,13 +35,6 @@ impl Serializer {
 		Ok(serializer.output)
 	}
 
-	/// Creates a new binary Serializer
-	pub fn new(big_endian: bool) -> Self {
-		Self {
-			output: Vec::new(),
-			big_endian,
-		}
-	}
 
 	fn serialize_num<T: ToBytes>(self: &mut Self, v: T) -> Result<()> {
 		if self.big_endian {

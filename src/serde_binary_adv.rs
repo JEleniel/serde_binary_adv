@@ -2,6 +2,7 @@ mod binaryerror;
 mod common;
 mod de;
 mod ser;
+mod cint;
 
 #[cfg(feature = "streaming")]
 pub mod stream;
@@ -10,6 +11,7 @@ pub use binaryerror::BinaryError;
 pub use common::{ByteFormat, Result};
 pub use de::Deserializer;
 pub use ser::Serializer;
+pub use cint::*;
 
 #[cfg(test)]
 mod tests {
